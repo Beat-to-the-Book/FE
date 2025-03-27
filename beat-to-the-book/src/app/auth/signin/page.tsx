@@ -1,15 +1,14 @@
+// src/app/auth/signin/page.tsx
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api/axios";
+import { signin } from "@/lib/api/auth";
 import { signinSchema, SigninFormData } from "@/lib/validation/authSchema";
 import { ZodError } from "zod";
-import { useAuthStore } from "@/store/authStore";
 import Link from "next/link";
 
 export default function SignIn() {
 	const router = useRouter();
-	const setToken = useAuthStore((state) => state.setToken);
 	const [formData, setFormData] = useState<SigninFormData>({
 		userId: "",
 		password: "",
@@ -19,12 +18,9 @@ export default function SignIn() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		try {
-			signinSchema.parse(formData);
+			signinSchema.parse(formData); // 유효성 검사
 			setErrors({});
-
-			const response = await api.post("/auth/signin", formData);
-			const { token } = response.data;
-			setToken(token); // Zustand에 토큰 저장
+			await signin(formData); // API 호출 및 Zustand 상태 설정
 			router.push("/");
 		} catch (error) {
 			if (error instanceof ZodError) {
@@ -34,7 +30,7 @@ export default function SignIn() {
 					password: fieldErrors.password?.[0],
 				});
 			} else {
-				console.error("로그인 실패:", error);
+				setErrors({ userId: "로그인에 실패했습니다. 다시 시도해주세요." });
 			}
 		}
 	};
