@@ -1,43 +1,54 @@
-"use client";
-import { useEffect, useState } from "react";
-import api from "@/lib/api/axios";
-import BookItem from "@/components/books/BookItem";
+// src/app/(main)/books/[id]/page.tsx
+import { mockBooks } from "@/lib/api/mockBooks";
 
-interface Book {
-	id: number;
-	title: string;
-	author: string;
-	coverImage: string;
-}
+export default async function BookDetailPage({ params }: { params: { id: string } }) {
+	const bookId = parseInt(params.id, 10);
+	const book = mockBooks.find((b) => b.id === bookId);
 
-export default function Home() {
-	const [books, setBooks] = useState<Book[]>([]);
-
-	useEffect(() => {
-		const fetchBooks = async () => {
-			try {
-				const response = await api.get("/books");
-				setBooks(response.data);
-			} catch (error) {
-				console.error("책 목록 불러오기 실패:", error);
-			}
-		};
-
-		fetchBooks();
-	}, []);
+	if (!book) {
+		return (
+			<div>
+				<p>책을 찾을 수 없습니다.</p>
+			</div>
+		);
+	}
 
 	return (
 		<div>
+			<h1>{book.title}</h1>
+			{book.coverImage && (
+				<img
+					src={book.coverImage}
+					alt={`${book.title} 표지`}
+					style={{ maxWidth: "300px", height: "auto" }}
+				/>
+			)}
 			<section>
-				<img src='/assets/main-banner.jpg' alt='메인 배너' />
-				<h1>추천 도서</h1>
+				<p>
+					<strong>저자:</strong> {book.author}
+				</p>
+				<p>
+					<strong>장르:</strong> {book.genre}
+				</p>
+				<p>
+					<strong>가격:</strong> {book.price.toLocaleString()}원
+				</p>
+				<p>
+					<strong>출판사:</strong> {book.publisher}
+				</p>
+				<p>
+					<strong>출판 연도:</strong> {book.publishYear}
+				</p>
 			</section>
 			<section>
-				{books.length > 0 ? (
-					books.map((book) => <BookItem key={book.id} book={book} />)
-				) : (
-					<p>책 목록을 불러오는 중입니다...</p>
-				)}
+				<button>장바구니에 담기</button>
+				<button>대여하기</button>
+				<button>구매하기</button>
+				<button>찜하기</button>
+			</section>
+			<section>
+				<h2>소개</h2>
+				<p>{book.intro}</p>
 			</section>
 		</div>
 	);

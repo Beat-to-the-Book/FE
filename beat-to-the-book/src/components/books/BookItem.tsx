@@ -1,3 +1,4 @@
+// src/components/books/BookItem.tsx
 import Link from "next/link";
 
 interface Book {

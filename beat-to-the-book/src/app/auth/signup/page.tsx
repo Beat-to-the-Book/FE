@@ -1,7 +1,8 @@
+// src/app/auth/signup/page.tsx
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api/axios";
+import { signup } from "@/lib/api/auth";
 import { signupSchema, SignupFormData } from "@/lib/validation/authSchema";
 import { ZodError } from "zod";
 import Link from "next/link";
@@ -20,11 +21,10 @@ export default function SignUp() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		try {
-			signupSchema.parse(formData);
+			signupSchema.parse(formData); // 유효성 검사
 			setErrors({});
-
-			await api.post("/auth/signup", formData);
-			router.push("/signin");
+			await signup(formData); // API 호출
+			router.push("/auth/signin");
 		} catch (error) {
 			if (error instanceof ZodError) {
 				const fieldErrors = error.flatten().fieldErrors;
@@ -33,10 +33,10 @@ export default function SignUp() {
 					username: fieldErrors.username?.[0],
 					email: fieldErrors.email?.[0],
 					password: fieldErrors.password?.[0],
-					role: fieldErrors.role?.[0], // role은 현재 UI에 없지만 대비
+					role: fieldErrors.role?.[0],
 				});
 			} else {
-				console.error("회원가입 실패:", error);
+				setErrors({ userId: "회원가입에 실패했습니다. 다시 시도해주세요." });
 			}
 		}
 	};
