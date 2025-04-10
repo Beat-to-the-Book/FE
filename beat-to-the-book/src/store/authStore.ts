@@ -1,10 +1,12 @@
+// src/store/authStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 interface AuthState {
 	token: string | null;
+	userId: string | null;
 	isAuthenticated: boolean;
-	setToken: (token: string) => void;
+	setToken: (token: string, userId: string) => void;
 	clearToken: () => void;
 }
 
@@ -12,13 +14,18 @@ export const useAuthStore = create<AuthState>()(
 	persist(
 		(set) => ({
 			token: null,
+			userId: null, // 초기값 null
 			isAuthenticated: false,
-			setToken: (token: string) => set({ token, isAuthenticated: true }),
-			clearToken: () => set({ token: null, isAuthenticated: false }),
+			setToken: (token: string, userId: string) => set({ token, userId, isAuthenticated: true }),
+			clearToken: () => set({ token: null, userId: null, isAuthenticated: false }),
 		}),
 		{
 			name: "auth-storage",
-			partialize: (state) => ({ token: state.token, isAuthenticated: state.isAuthenticated }),
+			partialize: (state) => ({
+				token: state.token,
+				userId: state.userId,
+				isAuthenticated: state.isAuthenticated,
+			}),
 			storage: {
 				getItem: (name) => {
 					if (typeof window === "undefined") return null;

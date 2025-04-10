@@ -18,9 +18,9 @@ export default function SignIn() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		try {
-			signinSchema.parse(formData); // 유효성 검사
+			signinSchema.parse(formData);
 			setErrors({});
-			await signin(formData); // API 호출 및 Zustand 상태 설정
+			await signin(formData);
 			router.push("/");
 		} catch (error) {
 			if (error instanceof ZodError) {
@@ -36,29 +36,43 @@ export default function SignIn() {
 	};
 
 	return (
-		<div>
-			<div>
-				<h2>로그인</h2>
-				<form onSubmit={handleSubmit}>
+		<div className='min-h-screen flex items-center justify-center p-6'>
+			<div className='bg-white shadow-md rounded-lg p-8 max-w-md w-full'>
+				<h2 className='text-2xl font-bold text-stateBlue mb-6 text-center'>로그인</h2>
+				<form onSubmit={handleSubmit} className='space-y-4'>
 					<div>
 						<input
 							type='text'
 							placeholder='아이디'
 							value={formData.userId}
 							onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+							className='w-full p-2 border border-gray rounded-md focus:outline-none focus:ring-2 focus:ring-forestGreen'
 						/>
-						{errors.userId && <p>{errors.userId}</p>}
+						{errors.userId && <p className='text-red-500 text-sm mt-1'>{errors.userId}</p>}
+					</div>
+					<div>
 						<input
 							type='password'
 							placeholder='비밀번호'
 							value={formData.password}
 							onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+							className='w-full p-2 border border-gray rounded-md focus:outline-none focus:ring-2 focus:ring-forestGreen'
 						/>
-						{errors.password && <p>{errors.password}</p>}
+						{errors.password && <p className='text-red-500 text-sm mt-1'>{errors.password}</p>}
 					</div>
-					<button type='submit'>로그인</button>
+					<button
+						type='submit'
+						className='w-full bg-forestGreen text-white p-2 rounded-md hover:bg-everGreen'
+					>
+						로그인
+					</button>
 				</form>
-				<Link href='/auth/signup'>아직 계정이 없으신가요?</Link>
+				<Link
+					href='/auth/signup'
+					className='text-forestGreen hover:underline block text-center mt-4'
+				>
+					아직 계정이 없으신가요?
+				</Link>
 			</div>
 		</div>
 	);

@@ -1,72 +1,49 @@
-// src/pages/index.tsx
+// src/app/(main)/page.tsx
+import { cookies } from "next/headers";
 
-"use client";
-import { useEffect, useState } from "react";
+import { fetchBooks, fetchRecommendBooks } from "@/lib/api/book";
+import { extractUserIdFromCookie } from "@/lib/api/auth";
+
+import { Book } from "@/lib/types/book";
+
 import BookItem from "@/components/books/BookItem";
-import { useAuthStore } from "@/store/authStore";
-import { Book, mockBooks } from "@/lib/api/mockBooks";
 
-export default function Home() {
-	const [books, setBooks] = useState<Book[]>([]);
-	const [isMounted, setIsMounted] = useState(false);
+export default async function Home() {
+	const cookieStore = await cookies();
+	const authData = cookieStore.get("auth-storage")?.value;
+	const userId = extractUserIdFromCookie(authData);
 
-	useEffect(() => {
-		setIsMounted(true); // 클라이언트에서만 실행
-	}, []);
+	let books: Book[] = [];
+	try {
+		books = await fetchBooks();
+	} catch (error) {
+		console.error("책 목록 불러오기 실패:", error);
+		books = [];
+	}
 
-	const isAuthStoreAuthenticated = useAuthStore((state) => state.isAuthenticated);
-	const isAuthenticated = isMounted && isAuthStoreAuthenticated;
-
-	useEffect(() => {
-		const fetchBooks = async () => {
-			try {
-				// Mock 데이터로 대체
-				await new Promise((resolve) => setTimeout(resolve, 500)); // 지연 시뮬레이션
-				setBooks(mockBooks);
-			} catch (error) {
-				console.error("책 목록 불러오기 실패:", error);
+	let recommendBooks: Book[] = [];
+	if (userId) {
+		try {
+			recommendBooks = await fetchRecommendBooks(userId);
+			if (recommendBooks.length > 0) {
+				books = recommendBooks;
 			}
-		};
-
-		fetchBooks();
-
-		// 주석 처리된 원래 API 호출
-		// const fetchBooks = async () => {
-		//   try {
-		//     const response = await api.get("/books");
-		//     setBooks(response.data);
-		//   } catch (error) {
-		//     console.error("책 목록 불러오기 실패:", error);
-		//   }
-		// };
-		//
-		// fetchBooks();
-	}, []);
-
-	if (!isMounted) {
-		return (
-			<div>
-				<section>
-					<h1>추천 도서</h1>
-					<p>로그인 후 더 많은 기능을 이용하세요.</p>
-				</section>
-				<section>
-					<p>책 목록을 불러오는 중입니다...</p>
-				</section>
-			</div>
-		);
+		} catch (error) {
+			console.error("추천 도서 목록 불러오기 실패:", error);
+			recommendBooks = [];
+		}
 	}
 
 	return (
-		<div>
-			<section>
-				<h1>추천 도서</h1>
+		<div className='min-h-screen p-6'>
+			<section className='text-center'>
+				<h1 className='text-3xl font-bold text-stateBlue mb-4'>추천 도서</h1>
 			</section>
-			<section>
+			<section className='flex flex-wrap justify-center gap-6 mt-6'>
 				{books.length > 0 ? (
 					books.map((book) => <BookItem key={book.id} book={book} />)
 				) : (
-					<p>책 목록을 불러오는 중입니다...</p>
+					<p className='text-gray'>책이 없습니다.</p>
 				)}
 			</section>
 		</div>
