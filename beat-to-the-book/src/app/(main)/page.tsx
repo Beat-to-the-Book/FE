@@ -1,37 +1,40 @@
 // src/app/(main)/page.tsx
-import { cookies } from "next/headers";
-
+"use client";
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/store/authStore";
 import { fetchBooks, fetchRecommendBooks } from "@/lib/api/book";
-import { extractUserIdFromCookie } from "@/lib/api/auth";
-
 import { Book } from "@/lib/types/book";
-
 import BookItem from "@/components/books/BookItem";
 
-export default async function Home() {
-	const cookieStore = await cookies();
-	const authData = cookieStore.get("auth-storage")?.value;
-	const userId = extractUserIdFromCookie(authData);
+export default function Home() {
+	const { token, userId } = useAuthStore();
+	const [books, setBooks] = useState<Book[]>([]);
+	const [loading, setLoading] = useState(true);
 
-	let books: Book[] = [];
-	try {
-		books = await fetchBooks();
-	} catch (error) {
-		console.error("책 목록 불러오기 실패:", error);
-		books = [];
-	}
-
-	let recommendBooks: Book[] = [];
-	if (userId) {
-		try {
-			recommendBooks = await fetchRecommendBooks(userId);
-			if (recommendBooks.length > 0) {
-				books = recommendBooks;
+	useEffect(() => {
+		const fetchData = async () => {
+			try {
+				let fetchedBooks: Book[] = await fetchBooks();
+				if (userId && token) {
+					const recommendBooks = await fetchRecommendBooks(token);
+					if (recommendBooks.length > 0) {
+						fetchedBooks = recommendBooks;
+					}
+				}
+				setBooks(fetchedBooks);
+			} catch (error) {
+				console.error("책 목록 불러오기 실패:", error);
+				setBooks([]);
+			} finally {
+				setLoading(false);
 			}
-		} catch (error) {
-			console.error("추천 도서 목록 불러오기 실패:", error);
-			recommendBooks = [];
-		}
+		};
+
+		fetchData();
+	}, [token, userId]);
+
+	if (loading) {
+		return <div className='min-h-screen p-6'>로딩 중...</div>;
 	}
 
 	return (

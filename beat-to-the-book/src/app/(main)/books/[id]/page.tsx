@@ -1,7 +1,10 @@
 // src/app/(main)/books/[id]/page.tsx
 import Link from "next/link";
 import { fetchBookById } from "@/lib/api/book";
-import { Book } from "@/lib/types/book"; // 새 파일에서 임포트
+import { Book } from "@/lib/types/book";
+import RecommendedBooks from "@/components/books/RecommendedBooks";
+import { cookies } from "next/headers";
+import AddToCartButton from "@/components/books/AddToCartButton";
 
 export default async function BookDetailPage({ params }: { params: { id: string } }) {
 	const bookId = parseInt(params.id, 10);
@@ -18,6 +21,15 @@ export default async function BookDetailPage({ params }: { params: { id: string 
 				</Link>
 			</div>
 		);
+	}
+
+	const cookieStore = await cookies();
+	const authData = cookieStore.get("auth-storage")?.value;
+	let userId: string | undefined;
+
+	if (authData) {
+		const parsed = JSON.parse(authData);
+		userId = parsed.state?.userId;
 	}
 
 	return (
@@ -49,9 +61,7 @@ export default async function BookDetailPage({ params }: { params: { id: string 
 					</p>
 				</section>
 				<section className='flex gap-4 mb-6'>
-					<button className='bg-forestGreen text-white px-4 py-2 rounded-md hover:bg-everGreen'>
-						장바구니에 담기
-					</button>
+					<AddToCartButton book={book} />
 					<button className='bg-springGreen text-stateBlue px-4 py-2 rounded-md hover:bg-forestGreen hover:text-white'>
 						대여하기
 					</button>
@@ -65,6 +75,10 @@ export default async function BookDetailPage({ params }: { params: { id: string 
 				<section>
 					<h2 className='text-2xl font-semibold text-stateBlue mb-2'>소개</h2>
 					<p className='text-gray-700 leading-relaxed'>{book.intro}</p>
+				</section>
+				<section className='mt-8'>
+					<h2 className='text-2xl font-semibold text-stateBlue mb-4'>추천 도서</h2>
+					<RecommendedBooks userId={userId} className='flex-col items-start' />
 				</section>
 			</div>
 		</div>

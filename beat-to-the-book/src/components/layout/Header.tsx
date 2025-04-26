@@ -23,12 +23,24 @@ export default function Header() {
 				</Link>
 				<div className='space-x-4'>
 					{isAuthenticated ? (
-						<button
-							onClick={handleLogout}
-							className='bg-forestGreen px-3 py-1 rounded-md hover:bg-everGreen'
-						>
-							로그아웃
-						</button>
+						<>
+							<button
+								onClick={handleLogout}
+								className='bg-forestGreen px-3 py-1 rounded-md hover:bg-everGreen'
+							>
+								로그아웃
+							</button>
+							<Link href='/cart' className='hover:text-springGreen'>
+								장바구니
+							</Link>
+							<Link href='/community' className='hover:text-springGreen'>
+								커뮤니티
+							</Link>
+							{/* 프로필은 아직 미완성 */}
+							<Link href='/mypage' className='hover:text-springGreen'>
+								마이페이지
+							</Link>
+						</>
 					) : (
 						<>
 							<Link href='/auth/signin' className='hover:text-springGreen'>
