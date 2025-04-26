@@ -2,19 +2,19 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-interface AuthState {
+type AuthState = {
 	token: string | null;
 	userId: string | null;
 	isAuthenticated: boolean;
 	setToken: (token: string, userId: string) => void;
 	clearToken: () => void;
-}
+};
 
 export const useAuthStore = create<AuthState>()(
 	persist(
 		(set) => ({
 			token: null,
-			userId: null, // 초기값 null
+			userId: null,
 			isAuthenticated: false,
 			setToken: (token: string, userId: string) => set({ token, userId, isAuthenticated: true }),
 			clearToken: () => set({ token: null, userId: null, isAuthenticated: false }),

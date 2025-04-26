@@ -6,10 +6,10 @@ import { SignupFormData } from "@/lib/validation/authSchema";
 
 export const signin = async (data: SigninFormData) => {
 	try {
-		const response = await axios.post("/auth/signin", data);
-		const { token } = response.data; // 응답에 token만 있다고 가정
-		useAuthStore.getState().setToken(token, data.userId); // 입력한 userId 사용
-		return { token, userId: data.userId };
+		const response = await axios.post("/auth/login", data);
+		const { token } = response.data.data;
+		useAuthStore.getState().setToken(token, response.data.data.userId);
+		return { token };
 	} catch (error) {
 		console.error("로그인 실패:", error);
 		throw error;
@@ -17,7 +17,7 @@ export const signin = async (data: SigninFormData) => {
 };
 export const signup = async (data: SignupFormData) => {
 	try {
-		const response = await axios.post("/auth/signup", data);
+		const response = await axios.post("/auth/register", data);
 		return response.data;
 	} catch (error) {
 		console.error("회원가입 실패:", error);
@@ -50,7 +50,7 @@ export const extractUserIdFromCookie = (cookieValue?: string): string | undefine
 // 현재 미사용
 export const checkToken = async (token: string) => {
 	try {
-		const response = await axios.get("/auth/check-token", {
+		const response = await axios.get("/auth/validate", {
 			headers: {
 				Authorization: `Bearer ${token}`,
 			},

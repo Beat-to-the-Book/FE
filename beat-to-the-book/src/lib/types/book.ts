@@ -1,5 +1,5 @@
 // src/lib/types/book.ts
-export interface Book {
+export type Book = {
 	id: number;
 	title: string;
 	author: string;
@@ -9,4 +9,10 @@ export interface Book {
 	publisher: string;
 	publishYear: string;
 	coverImage?: string;
-}
+};
+
+export type RecommendedBook = {
+	bookId: number;
+	title: string;
+	coverImage: string;
+};

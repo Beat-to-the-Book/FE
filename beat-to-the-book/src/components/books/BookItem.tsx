@@ -1,6 +1,6 @@
 // src/components/books/BookItem.tsx
 import Link from "next/link";
-import { Book } from "@/lib/api/mockBooks";
+import { Book } from "@/lib/types/book";
 
 export default function BookItem({ book }: { book: Book }) {
 	return (
