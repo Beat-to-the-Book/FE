@@ -7,7 +7,7 @@ import { Book } from "@/lib/types/book";
 import BookItem from "@/components/books/BookItem";
 
 export default function Home() {
-	const { token, userId } = useAuthStore();
+	const { token, isAuthenticated } = useAuthStore();
 	const [books, setBooks] = useState<Book[]>([]);
 	const [loading, setLoading] = useState(true);
 
@@ -15,7 +15,7 @@ export default function Home() {
 		const fetchData = async () => {
 			try {
 				let fetchedBooks: Book[] = await fetchBooks();
-				if (userId && token) {
+				if (isAuthenticated) {
 					const recommendBooks = await fetchRecommendBooks(token);
 					if (recommendBooks.length > 0) {
 						fetchedBooks = recommendBooks;
@@ -31,7 +31,7 @@ export default function Home() {
 		};
 
 		fetchData();
-	}, [token, userId]);
+	}, [isAuthenticated, token]);
 
 	if (loading) {
 		return <div className='min-h-screen p-6'>로딩 중...</div>;

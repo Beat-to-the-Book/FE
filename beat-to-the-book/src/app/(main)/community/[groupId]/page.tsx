@@ -11,14 +11,14 @@ import { useAuthStore } from "@/store/authStore";
 
 export default function GroupDetailPage({ params }: { params: { groupId: string } }) {
 	const groupId = parseInt(params.groupId, 10);
-	const { token, userId } = useAuthStore();
+	const { token, isAuthenticated } = useAuthStore();
 	const router = useRouter();
 	const [posts, setPosts] = useState<Post[]>([]);
 	const [isMember, setIsMember] = useState(false);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		if (!token || !userId) {
+		if (!isAuthenticated) {
 			router.push("/auth/signin");
 			return;
 		}
@@ -26,8 +26,8 @@ export default function GroupDetailPage({ params }: { params: { groupId: string 
 		const fetchData = async () => {
 			try {
 				const [fetchedPosts, membership] = await Promise.all([
-					fetchPosts(groupId, token),
-					fetchGroupMembers(groupId, token),
+					fetchPosts(groupId, token!),
+					fetchGroupMembers(groupId, token!),
 				]);
 				setPosts(fetchedPosts);
 				setIsMember(membership);
@@ -40,7 +40,7 @@ export default function GroupDetailPage({ params }: { params: { groupId: string 
 		};
 
 		fetchData();
-	}, [groupId, token, userId, router]);
+	}, [groupId, token, isAuthenticated, router]);
 
 	if (loading) {
 		return <div className='min-h-screen p-6'>로딩 중...</div>;
@@ -56,11 +56,9 @@ export default function GroupDetailPage({ params }: { params: { groupId: string 
 			{isMember && (
 				<section className='mt-6'>
 					<CreatePostForm groupId={groupId} onPostCreated={(post) => setPosts([post, ...posts])} />
-					{userId && <PostList initialPosts={posts} userId={userId} />}
+					<PostList initialPosts={posts} />
 				</section>
 			)}
 		</div>
 	);
 }
-
-// TODO: userId와 token 통일, AuthStore에서 userId 저장시키기

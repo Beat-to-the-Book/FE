@@ -11,25 +11,26 @@ export default async function PostDetailPage({
 }: {
 	params: { groupId: string; postId: string };
 }) {
-	const postId = parseInt(params.postId, 10);
 	const groupId = parseInt(params.groupId, 10);
-	const cookieStore = await cookies();
-	const authData = cookieStore.get("auth-storage")?.value;
-	let userId: string | undefined;
+	const postId = parseInt(params.postId, 10);
 
-	if (authData) {
-		const parsed = JSON.parse(authData);
-		userId = parsed.state?.userId;
+	const authCookie = (await cookies()).get("auth-storage")?.value;
+	if (!authCookie) {
+		redirect("/auth/signin");
 	}
 
-	if (!userId) {
+	const { state } = JSON.parse(authCookie);
+	const token = state.token as string | null;
+	const isAuthenticated = state.isAuthenticated as boolean | null;
+
+	if (!token || !isAuthenticated) {
 		redirect("/auth/signin");
 	}
 
 	let post: Post;
 	try {
 		post = await fetchPostById(postId);
-	} catch (error) {
+	} catch {
 		return (
 			<div className='min-h-screen flex items-center justify-center'>
 				<p className='text-lg font-semibold'>게시글을 찾을 수 없습니다.</p>
@@ -47,7 +48,8 @@ export default async function PostDetailPage({
 				<p className='text-gray-700 mb-4'>{post.content}</p>
 				<p className='text-sm text-gray'>작성자: {post.userId}</p>
 				<p className='text-sm text-gray'>작성일: {new Date(post.createdAt).toLocaleDateString()}</p>
-				{post.userId === userId && <DeletePostButton postId={post.id} groupId={groupId} />}
+
+				{isAuthenticated && <DeletePostButton postId={post.id} groupId={groupId} />}
 				<Link
 					href={`/community/${groupId}`}
 					className='mt-4 inline-block text-forestGreen hover:underline'
