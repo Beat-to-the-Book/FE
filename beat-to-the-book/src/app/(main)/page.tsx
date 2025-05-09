@@ -7,7 +7,7 @@ import { Book, RecommendedBook } from "@/lib/types/book";
 import BookItem from "@/components/books/BookItem";
 
 export default function Home() {
-	const { token, isAuthenticated } = useAuthStore();
+	const { isAuthenticated } = useAuthStore();
 	const behaviors = useBehaviorStore((s) => s.behaviors);
 
 	const [allBooks, setAllBooks] = useState<Book[]>([]);
@@ -29,7 +29,7 @@ export default function Home() {
 		const loadRec = async () => {
 			if (!isAuthenticated) return;
 			try {
-				const recs = await fetchRecommendBooks(token, behaviors.length ? behaviors : null);
+				const recs = await fetchRecommendBooks(behaviors.length ? behaviors : null);
 
 				if (recs.length) {
 					const mapped = recs.map(
@@ -50,7 +50,7 @@ export default function Home() {
 
 		/** 순차 실행 */
 		Promise.all([loadAll(), loadRec()]).finally(() => setLoading(false));
-	}, [isAuthenticated, token, behaviors]);
+	}, [isAuthenticated, behaviors]);
 
 	/* ──────────────── 렌더 ──────────────── */
 	if (loading) return <div className='min-h-screen p-6'>로딩 중...</div>;

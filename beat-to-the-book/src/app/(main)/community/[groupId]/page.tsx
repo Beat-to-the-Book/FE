@@ -2,16 +2,17 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchPosts, Post } from "@/lib/api/post";
+import { fetchPosts } from "@/lib/api/post";
 import { fetchGroupMembers } from "@/lib/api/group";
 import PostList from "@/components/community/PostList";
 import CreatePostForm from "@/components/community/CreatePostForm";
 import JoinLeaveButton from "@/components/community/JoinLeaveButton";
 import { useAuthStore } from "@/store/authStore";
+import { Post } from "@/lib/types/post";
 
 export default function GroupDetailPage({ params }: { params: { groupId: string } }) {
 	const groupId = parseInt(params.groupId, 10);
-	const { token, isAuthenticated } = useAuthStore();
+	const { isAuthenticated } = useAuthStore();
 	const router = useRouter();
 	const [posts, setPosts] = useState<Post[]>([]);
 	const [isMember, setIsMember] = useState(false);
@@ -26,8 +27,8 @@ export default function GroupDetailPage({ params }: { params: { groupId: string 
 		const fetchData = async () => {
 			try {
 				const [fetchedPosts, membership] = await Promise.all([
-					fetchPosts(groupId, token!),
-					fetchGroupMembers(groupId, token!),
+					fetchPosts(groupId),
+					fetchGroupMembers(groupId),
 				]);
 				setPosts(fetchedPosts);
 				setIsMember(membership);

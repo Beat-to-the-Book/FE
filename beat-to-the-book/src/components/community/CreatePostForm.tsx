@@ -12,7 +12,7 @@ interface CreatePostFormProps {
 }
 
 export default function CreatePostForm({ groupId, onPostCreated }: CreatePostFormProps) {
-	const { token } = useAuthStore();
+	const user = useAuthStore((s) => s.user);
 	const [content, setContent] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -23,8 +23,7 @@ export default function CreatePostForm({ groupId, onPostCreated }: CreatePostFor
 			setError("내용을 입력해주세요.");
 			return;
 		}
-
-		if (!token) {
+		if (!user) {
 			setError("로그인이 필요합니다.");
 			return;
 		}
@@ -32,12 +31,12 @@ export default function CreatePostForm({ groupId, onPostCreated }: CreatePostFor
 		setIsSubmitting(true);
 		try {
 			setError(null);
-			const post = await createPost({ groupId, content }, token);
+			const post = await createPost({ groupId, content });
 			onPostCreated(post);
 			setContent("");
-		} catch (error) {
+		} catch (e: any) {
 			setError("게시글 작성 실패");
-			handleApiError(error);
+			handleApiError(e);
 		} finally {
 			setIsSubmitting(false);
 		}

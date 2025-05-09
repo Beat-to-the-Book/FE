@@ -23,3 +23,5 @@ export default async function CommunityPage() {
 		</div>
 	);
 }
+
+// TODO: 그룹 탈퇴, 그룹 멤보 조회, 유저 강퇴, 방장 권한 위임, 본인 그룹 조회

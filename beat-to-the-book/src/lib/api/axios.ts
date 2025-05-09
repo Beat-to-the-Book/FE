@@ -1,5 +1,5 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from "axios";
-import { useAuthStore } from "@/store/authStore";
+// src/lib/api/axios.ts
+import axios, { AxiosInstance, AxiosResponse } from "axios";
 
 const api: AxiosInstance = axios.create({
 	baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8082/api",
@@ -7,37 +7,23 @@ const api: AxiosInstance = axios.create({
 	headers: {
 		"Content-Type": "application/json",
 	},
+	// HttpOnly 쿠키를 자동으로 포함
+	withCredentials: true,
 });
 
-// 요청 인터셉터
-api.interceptors.request.use(
-	(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-		const token = useAuthStore.getState().token; // Zustand에서 토큰 가져오기
-		if (token) {
-			config.headers = config.headers || {};
-			config.headers.Authorization = `Bearer ${token}`;
-		}
-		console.log("요청:", config.method, config.url);
-		return config;
-	},
-	(error) => {
-		console.error("요청 에러:", error);
-		return Promise.reject(error);
-	}
-);
-
-// 응답 인터셉터
+// 응답 인터셉터: 401/403 시 클라이언트 상태 초기화
 api.interceptors.response.use(
-	(response: AxiosResponse): AxiosResponse => {
+	(response: AxiosResponse) => {
 		console.log("응답:", response.status, response.data);
 		return response;
 	},
 	(error) => {
 		if (error.response) {
 			const { status } = error.response;
-			if (status === 401) {
-				console.error("인증 실패: 토큰이 유효하지 않습니다.");
-				useAuthStore.getState().clearToken(); // 토큰 만료 시 제거
+			if (status === 401 || status === 403) {
+				console.error("인증 오류 발생");
+				// authStore에서 clearUser 호출
+				import("@/store/authStore").then(({ useAuthStore }) => useAuthStore.getState().clearUser());
 			}
 			const message = error.response.data?.message || "서버 오류가 발생했습니다.";
 			return Promise.reject(new Error(message));
