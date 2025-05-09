@@ -7,28 +7,26 @@ import { handleApiError } from "@/lib/api/utils";
 
 interface DeletePostButtonProps {
 	postId: number;
-	groupId: number;
 }
 
-export default function DeletePostButton({ postId, groupId }: DeletePostButtonProps) {
+export default function DeletePostButton({ postId }: DeletePostButtonProps) {
 	const router = useRouter();
-	const { token } = useAuthStore();
+	const user = useAuthStore((s) => s.user);
 
 	const handleDelete = async () => {
-		if (!token) {
+		if (!user) {
 			alert("로그인이 필요합니다.");
 			router.push("/auth/signin");
 			return;
 		}
-
 		if (!confirm("게시글을 삭제하시겠습니까?")) return;
 
 		try {
-			await deletePost(postId, token);
+			await deletePost(postId);
 			router.refresh();
-		} catch (error) {
+		} catch (e: any) {
 			alert("게시글 삭제 실패");
-			handleApiError(error);
+			handleApiError(e, router);
 		}
 	};
 

@@ -7,25 +7,23 @@ import { handleApiError } from "@/lib/api/utils";
 
 interface PostItemProps {
 	post: Post;
-	userId: string; // 클라이언트 UI용, 삭제 권한은 canDelete로 확인
 	onDelete: (postId: number) => void;
 }
 
 export default function PostItem({ post, onDelete }: PostItemProps) {
-	const { token } = useAuthStore();
+	const user = useAuthStore((s) => s.user);
 
 	const handleDelete = async () => {
-		if (!token) {
+		if (!user) {
 			alert("로그인이 필요합니다.");
 			return;
 		}
-
 		try {
-			await deletePost(post.id, token);
+			await deletePost(post.id);
 			onDelete(post.id);
-		} catch (error) {
+		} catch (e: any) {
 			alert("게시글 삭제 실패");
-			handleApiError(error);
+			handleApiError(e);
 		}
 	};
 

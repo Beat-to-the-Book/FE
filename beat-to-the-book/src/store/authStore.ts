@@ -1,28 +1,24 @@
 // src/store/authStore.ts
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
-type AuthState = {
-	token: string | null;
-	isAuthenticated: boolean;
-	setToken: (token: string) => void;
-	clearToken: () => void;
+type User = {
+	id: string;
+	nickname: string;
+	email: string;
+	role: "USER" | "ADMIN";
+	profileImage: string;
 };
 
-export const useAuthStore = create<AuthState>()(
-	persist(
-		(set) => ({
-			token: null,
-			isAuthenticated: false,
-			setToken: (token: string) => set({ token, isAuthenticated: true }),
-			clearToken: () => set({ token: null, isAuthenticated: false }),
-		}),
-		{
-			name: "auth-storage",
-			partialize: (state) => ({
-				token: state.token,
-				isAuthenticated: state.isAuthenticated,
-			}),
-		}
-	)
-);
+type AuthState = {
+	user: User | null;
+	isAuthenticated: boolean;
+	setUser: (user: User) => void;
+	clearUser: () => void;
+};
+
+export const useAuthStore = create<AuthState>((set) => ({
+	user: null,
+	isAuthenticated: false,
+	setUser: (user) => set({ user, isAuthenticated: true }),
+	clearUser: () => set({ user: null, isAuthenticated: false }),
+}));

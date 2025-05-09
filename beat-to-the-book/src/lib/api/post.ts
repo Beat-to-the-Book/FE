@@ -1,65 +1,32 @@
 // src/lib/api/post.ts
 import axios from "./axios";
 import { Post } from "@/lib/types/post";
-import { createAuthHeaders, handleApiError } from "./utils";
 
-export const fetchPosts = async (groupId: number, token?: string): Promise<Post[]> => {
-	try {
-		const response = await axios.get(`/posts`, {
-			params: { groupId },
-			headers: createAuthHeaders(token),
-		});
-		return response.data;
-	} catch (error) {
-		handleApiError(error);
-		throw error;
-	}
+export const fetchPosts = async (groupId: number): Promise<Post[]> => {
+	const response = await axios.get("/posts", { params: { groupId } });
+	return response.data;
 };
 
-export const fetchPostById = async (postId: number, token?: string): Promise<Post> => {
-	try {
-		const response = await axios.get(`/posts/${postId}`, { headers: createAuthHeaders(token) });
-		return response.data;
-	} catch (error) {
-		handleApiError(error);
-		throw error;
-	}
+export const fetchPostById = async (postId: number): Promise<Post> => {
+	const response = await axios.get(`/posts/${postId}`);
+	return response.data;
 };
 
-export const createPost = async (
-	data: { groupId: number; content: string },
-	token: string
-): Promise<Post> => {
-	try {
-		const response = await axios.post(`/posts`, data, { headers: createAuthHeaders(token) });
-		return response.data;
-	} catch (error) {
-		handleApiError(error);
-		throw error;
-	}
+export const createPost = async (data: { groupId: number; content: string }): Promise<Post> => {
+	const response = await axios.post("/posts", data);
+	return response.data;
 };
 
-export const deletePost = async (postId: number, token: string): Promise<void> => {
-	try {
-		await axios.delete(`/posts/${postId}`, { headers: createAuthHeaders(token) });
-	} catch (error) {
-		handleApiError(error);
-		throw error;
-	}
+// TODO: groupId를 넣어야 하는지 확인, 백엔드 API 문서에 없음
+
+export const deletePost = async (postId: number): Promise<void> => {
+	await axios.delete(`/posts/${postId}`);
 };
 
 export const updatePost = async (
 	postId: number,
-	data: { title: string; content: string },
-	token: string
+	data: { title: string; content: string }
 ): Promise<Post> => {
-	try {
-		const response = await axios.put(`/posts/${postId}`, data, {
-			headers: createAuthHeaders(token),
-		});
-		return response.data;
-	} catch (error) {
-		handleApiError(error);
-		throw error;
-	}
+	const response = await axios.put(`/posts/${postId}`, data);
+	return response.data;
 };

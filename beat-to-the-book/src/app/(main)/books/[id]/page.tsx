@@ -1,3 +1,5 @@
+// src/app/(main)/books/[id]/page.tsx
+
 import Link from "next/link";
 import { fetchBookById, fetchBooks } from "@/lib/api/book";
 import RecommendedBooks from "@/components/books/RecommendedBooks";
