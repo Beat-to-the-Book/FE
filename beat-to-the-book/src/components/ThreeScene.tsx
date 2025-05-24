@@ -18,6 +18,8 @@ const Game: React.FC = () => {
 	const [hasThrown, setHasThrown] = useState<boolean>(false);
 	const [success, setSuccess] = useState<boolean>(false); // ✅ 추가: 성공 상태를 UI에 표시
 
+	// TODO: 성공 범위 표시
+
 	useEffect(() => {
 		// --------------------------
 		// 1. Three.js 기본 세팅
@@ -426,3 +428,5 @@ const Game: React.FC = () => {
 };
 
 export default Game;
+
+// TODO: /purchase/history, /rental/history 에서 이미지 가져와 책 표지로 사용하기

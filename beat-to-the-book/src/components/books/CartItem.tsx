@@ -8,6 +8,8 @@ interface CartItemProps {
 	item: { book: Book; quantity: number };
 }
 
+// TODO: 인자 병경
+
 export default function CartItem({ item }: CartItemProps) {
 	const { updateQuantity, removeItem } = useCartStore();
 

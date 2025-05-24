@@ -10,6 +10,8 @@ type RecommendedBooksProps = {
 	className?: string;
 };
 
+// TODO: 인자변경
+
 export default function RecommendedBooks({ className = "" }: RecommendedBooksProps) {
 	const { token } = useAuthStore();
 	const [books, setBooks] = useState<RecommendedBook[]>([]);

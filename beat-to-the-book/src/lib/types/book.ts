@@ -16,3 +16,5 @@ export type RecommendedBook = {
 	title: string;
 	coverImage: string;
 };
+
+// TODO: 요청에 맞게 타입 변경 필요 frontCoverImageUrl 등

@@ -5,7 +5,7 @@ import api from "@/lib/api/axios";
 export async function getSearchSuggestions(q: string): Promise<string[]> {
 	if (!q) return [];
 	try {
-		const res = await api.get<{ suggestions: string[] }>("/search-suggestions", {
+		const res = await api.get<{ suggestions: string[] }>("/search", {
 			params: { q },
 		});
 		return res.data.suggestions;

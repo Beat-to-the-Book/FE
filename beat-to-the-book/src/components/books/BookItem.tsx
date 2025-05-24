@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { Book } from "@/lib/types/book";
 
+// TODO: 인자 변경
+
 export default function BookItem({ book }: { book: Book }) {
 	return (
 		<Link href={`/books/${book.id}`} className='block'>

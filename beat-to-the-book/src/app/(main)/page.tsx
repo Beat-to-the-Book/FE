@@ -14,6 +14,8 @@ export default function Home() {
 	const [recBooks, setRecBooks] = useState<Book[]>([]);
 	const [loading, setLoading] = useState(true);
 
+	// TODO: book 인자 변경
+
 	useEffect(() => {
 		/** 전체 도서 먼저 로드 */
 		const loadAll = async () => {

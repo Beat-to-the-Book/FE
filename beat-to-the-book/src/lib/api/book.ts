@@ -26,3 +26,5 @@ export const fetchBookById = async (id: number): Promise<Book> => {
 	const response = await axios.get(`/book/${id}`);
 	return response.data;
 };
+
+// TODO: /recommend의 request 제거와 /behavior 추가
