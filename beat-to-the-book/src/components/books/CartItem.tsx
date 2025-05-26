@@ -3,12 +3,11 @@
 import { useCartStore } from "@/store/cartStore";
 import { Book } from "@/lib/types/book";
 import Link from "next/link";
+import Image from "next/image";
 
 interface CartItemProps {
 	item: { book: Book; quantity: number };
 }
-
-// TODO: 인자 병경
 
 export default function CartItem({ item }: CartItemProps) {
 	const { updateQuantity, removeItem } = useCartStore();
@@ -16,9 +15,11 @@ export default function CartItem({ item }: CartItemProps) {
 	return (
 		<div className='bg-white shadow-md rounded-lg p-4 flex items-center gap-4'>
 			<Link href={`/books/${item.book.id}`}>
-				<img
-					src={item.book.coverImage || "/default-cover.jpg"}
+				<Image
+					src={(item.book as any).imageUrl || "/default-cover.jpg"}
 					alt={item.book.title}
+					width={64}
+					height={96}
 					className='w-16 h-24 object-cover rounded'
 				/>
 			</Link>

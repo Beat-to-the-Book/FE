@@ -6,7 +6,7 @@ import { persist } from "zustand/middleware";
 export interface UserBehavior {
 	bookId: number;
 	stayTime: number;
-	scrollDepth?: number;
+	scrollDepth: number;
 }
 
 type BehaviorState = {
@@ -24,9 +24,11 @@ export const useBehaviorStore = create<BehaviorState>()(
 				const idx = list.findIndex((b) => b.bookId === entry.bookId);
 				if (idx > -1) {
 					const updated = [...list];
+					const prev = updated[idx];
 					updated[idx] = {
 						bookId: entry.bookId,
-						stayTime: updated[idx].stayTime + entry.stayTime,
+						stayTime: prev.stayTime + entry.stayTime,
+						scrollDepth: Math.max(prev.scrollDepth, entry.scrollDepth),
 					};
 					set({ behaviors: updated });
 				} else {
@@ -38,5 +40,3 @@ export const useBehaviorStore = create<BehaviorState>()(
 		{ name: "user-behaviors" }
 	)
 );
-
-// TODO: 초기에는 데이터가 없으니 빈 배열로 초기화하여 저장하던가 전송할 때 로컬스토리지에 없다면 빈 배열을 전송하는 로직, 상세페이지 스크롤 얼마나 했는지 측정 후 저장 로직 추가

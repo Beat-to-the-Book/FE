@@ -5,13 +5,14 @@ import { useBehaviorStore } from "@/store/behaviorStore";
 import { fetchBooks, fetchRecommendBooks } from "@/lib/api/book";
 import { Book, RecommendedBook } from "@/lib/types/book";
 import BookItem from "@/components/books/BookItem";
+import RecommendedBookItem from "@/components/books/RecommendedBookItem";
 
 export default function Home() {
 	const { isAuthenticated } = useAuthStore();
 	const behaviors = useBehaviorStore((s) => s.behaviors);
 
 	const [allBooks, setAllBooks] = useState<Book[]>([]);
-	const [recBooks, setRecBooks] = useState<Book[]>([]);
+	const [recBooks, setRecBooks] = useState<RecommendedBook[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	// TODO: book 인자 변경
@@ -31,14 +32,14 @@ export default function Home() {
 		const loadRec = async () => {
 			if (!isAuthenticated) return;
 			try {
-				const recs = await fetchRecommendBooks(behaviors.length ? behaviors : null);
+				const recs = await fetchRecommendBooks();
 
 				if (recs.length) {
 					const mapped = recs.map(
-						(r: RecommendedBook): Book => ({
-							id: r.bookId,
+						(r: RecommendedBook): RecommendedBook => ({
+							bookId: r.bookId,
 							title: r.title,
-							coverImage: r.coverImage,
+							coverImageUrl: r.coverImageUrl,
 							author: (r as any).author ?? "",
 						})
 					);
@@ -65,7 +66,15 @@ export default function Home() {
 					<h1 className='text-3xl font-bold text-stateBlue mb-4'>추천 도서</h1>
 					<div className='flex flex-wrap justify-center gap-6 mb-10'>
 						{recBooks.map((b) => (
-							<BookItem key={b.id} book={b} />
+							<RecommendedBookItem
+								key={b.bookId}
+								book={{
+									bookId: b.bookId,
+									title: b.title,
+									author: (b as any).author ?? "",
+									coverImageUrl: (b as any).coverImage ?? null,
+								}}
+							/>
 						))}
 					</div>
 				</>

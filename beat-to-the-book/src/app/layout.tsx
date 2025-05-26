@@ -3,6 +3,7 @@
 
 import React, { useEffect } from "react";
 import QueryProvider from "@/components/providers/QueryProvider";
+import BehaviorBatchSender from "@/components/books/BehaviorBatchSender";
 import "@/app/globals.css"; // Tailwind CSS
 import axios from "@/lib/api/axios";
 import { useAuthStore } from "@/store/authStore";
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 		<html lang='ko'>
 			<body>
 				<QueryProvider>{children}</QueryProvider>
+				<BehaviorBatchSender />
 			</body>
 		</html>
 	);

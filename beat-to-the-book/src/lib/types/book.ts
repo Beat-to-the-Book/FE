@@ -1,4 +1,5 @@
 // src/lib/types/book.ts
+
 export type Book = {
 	id: number;
 	title: string;
@@ -7,14 +8,15 @@ export type Book = {
 	intro: string;
 	price: number;
 	publisher: string;
-	publishYear: string;
-	coverImage?: string;
+	publishDate: string;
+	leftCoverImageUrl?: string | null;
+	frontCoverImageUrl?: string | null;
+	backCoverImageUrl?: string | null;
 };
 
 export type RecommendedBook = {
 	bookId: number;
 	title: string;
-	coverImage: string;
+	author: string;
+	coverImageUrl?: string | null;
 };
-
-// TODO: 요청에 맞게 타입 변경 필요 frontCoverImageUrl 등

@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Params }) {
 	return {
 		title: `${book.title} | MyBookStore`,
 		description: `${book.author}의 『${book.title}』 상세 정보 및 소개`,
-		openGraph: { images: [{ url: book.coverImage }] },
+		openGraph: { images: [{ url: book.frontCoverImageUrl }] },
 	};
 }
 
@@ -47,9 +47,9 @@ export default async function BookDetailPage({ params }: { params: Params }) {
 			<div className='max-w-4xl mx-auto bg-white shadow-md rounded-lg p-6'>
 				{/* 책 제목 / 표지 */}
 				<h1 className='text-3xl font-bold text-stateBlue mb-4'>{book.title}</h1>
-				{book.coverImage && (
+				{book.frontCoverImageUrl && (
 					<img
-						src={book.coverImage}
+						src={book.frontCoverImageUrl}
 						alt={`${book.title} 표지`}
 						className='w-full max-w-xs mx-auto rounded-md mb-6'
 					/>
@@ -70,7 +70,7 @@ export default async function BookDetailPage({ params }: { params: Params }) {
 						<strong className='text-everGreen'>출판사:</strong> {book.publisher}
 					</p>
 					<p>
-						<strong className='text-everGreen'>출판 연도:</strong> {book.publishYear}
+						<strong className='text-everGreen'>출판 연도:</strong> {book.publishDate}
 					</p>
 				</section>
 
