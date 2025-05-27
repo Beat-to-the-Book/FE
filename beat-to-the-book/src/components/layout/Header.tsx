@@ -31,53 +31,60 @@ export default function Header() {
 							커뮤니티
 						</Link>
 					</li>
-					<li className='relative group'>
-						<span className='cursor-pointer hover:text-springGreen'>My</span>
-						<ul
-							className='absolute left-0 mt-2 w-44 bg-stateBlue text-white rounded-md shadow-lg
-                            opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200'
-						>
-							<li>
-								<Link href='/mypage/bookshelf' className='block px-4 py-2 hover:bg-everGreen'>
-									책장 꾸미기
-								</Link>
-							</li>
-							<li>
-								<Link href='/mypage/calendar' className='block px-4 py-2 hover:bg-everGreen'>
-									달력
-								</Link>
-							</li>
-							<li>
-								<Link href='/minigame' className='block px-4 py-2 hover:bg-everGreen'>
-									미니게임
-								</Link>
-							</li>
-							<li>
-								<Link href='/mypage' className='block px-4 py-2 hover:bg-everGreen'>
-									마이페이지
-								</Link>
-							</li>
-						</ul>
-					</li>
+
 					<li>
 						<Link href='/ranking' className='hover:text-springGreen'>
 							랭킹(명예의 전당)
 						</Link>
 					</li>
+					{/* 중앙 검색창 */}
+					<SearchBar />
+					<li>
+						<Link href='/cart' className='block px-4 py-2 hover:bg-everGreen'>
+							장바구니
+						</Link>
+					</li>
 				</ul>
-
-				{/* 중앙 검색창 */}
-				<SearchBar />
 
 				{/* 우측 로그인/로그아웃 */}
 				<div className='flex items-center space-x-4'>
 					{isAuthenticated ? (
-						<button
-							onClick={handleLogout}
-							className='bg-forestGreen px-3 py-1 rounded-md hover:bg-everGreen'
-						>
-							로그아웃
-						</button>
+						<>
+							<li className='relative group'>
+								<span className='cursor-pointer hover:text-springGreen'>My</span>
+								<ul
+									className='absolute left-0 mt-2 w-44 bg-stateBlue text-white rounded-md shadow-lg
+                            opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200'
+								>
+									<li>
+										<Link href='/mypage/bookshelf' className='block px-4 py-2 hover:bg-everGreen'>
+											책장 꾸미기
+										</Link>
+									</li>
+									<li>
+										<Link href='/mypage/calendar' className='block px-4 py-2 hover:bg-everGreen'>
+											달력
+										</Link>
+									</li>
+									<li>
+										<Link href='/minigame' className='block px-4 py-2 hover:bg-everGreen'>
+											미니게임
+										</Link>
+									</li>
+									<li>
+										<Link href='/mypage' className='block px-4 py-2 hover:bg-everGreen'>
+											마이페이지
+										</Link>
+									</li>
+								</ul>
+							</li>
+							<button
+								onClick={handleLogout}
+								className='bg-forestGreen px-3 py-1 rounded-md hover:bg-everGreen'
+							>
+								로그아웃
+							</button>
+						</>
 					) : (
 						<>
 							<Link href='/auth/signin' className='hover:text-springGreen'>

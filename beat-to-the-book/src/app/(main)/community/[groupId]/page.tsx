@@ -41,7 +41,7 @@ export default function GroupDetailPage({ params }: { params: { groupId: string 
 		};
 
 		fetchData();
-	}, [groupId, token, isAuthenticated, router]);
+	}, [groupId, isAuthenticated, router]);
 
 	if (loading) {
 		return <div className='min-h-screen p-6'>로딩 중...</div>;
@@ -51,7 +51,7 @@ export default function GroupDetailPage({ params }: { params: { groupId: string 
 		<div className='min-h-screen p-6'>
 			<section className='text-center'>
 				<h1 className='text-3xl font-bold text-stateBlue mb-4'>그룹 상세</h1>
-				{token && <JoinLeaveButton groupId={groupId} token={token} isMember={isMember} />}
+				{<JoinLeaveButton groupId={groupId} isMember={isMember} />}
 			</section>
 
 			{isMember && (

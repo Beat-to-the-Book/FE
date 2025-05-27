@@ -3,22 +3,20 @@
 import { useEffect, useState } from "react";
 import { fetchRecommendBooks } from "@/lib/api/book";
 import { RecommendedBook } from "@/lib/types/book";
-import { useAuthStore } from "@/store/authStore";
-import BookItem from "./BookItem";
+import RecommendedBookItem from "./RecommendedBookItem";
 
 type RecommendedBooksProps = {
 	className?: string;
 };
 
 export default function RecommendedBooks({ className = "" }: RecommendedBooksProps) {
-	const { token } = useAuthStore();
 	const [books, setBooks] = useState<RecommendedBook[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const fetchData = async () => {
 			try {
-				const fetchedBooks = await fetchRecommendBooks(token);
+				const fetchedBooks = await fetchRecommendBooks();
 				setBooks(fetchedBooks);
 			} catch {
 				setBooks([]);
@@ -28,7 +26,7 @@ export default function RecommendedBooks({ className = "" }: RecommendedBooksPro
 		};
 
 		fetchData();
-	}, [token]);
+	}, []);
 
 	if (loading) return <div>Loading...</div>;
 
@@ -36,14 +34,13 @@ export default function RecommendedBooks({ className = "" }: RecommendedBooksPro
 		<section className={`flex flex-wrap gap-6 ${className}`}>
 			{books.length > 0 ? (
 				books.map((b) => (
-					<BookItem
-						/* BookItem이 요구하는 속성(id 등)에 맞춰 변환 */
+					<RecommendedBookItem
 						key={b.bookId}
 						book={{
-							id: b.bookId,
+							bookId: b.bookId,
 							title: b.title,
-							coverImage: b.coverImage,
-							author: b.author ?? "", // API에도 author가 있으면 그대로, 없으면 빈 문자열
+							author: b.author,
+							coverImageUrl: b.coverImageUrl,
 						}}
 					/>
 				))

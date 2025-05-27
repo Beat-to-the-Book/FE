@@ -1,38 +1,31 @@
 // src/components/layout/SearchBar.tsx
-
 "use client";
-import { debounce } from "@/lib/utils/debounce";
 
+import { debounce } from "@/lib/utils/debounce";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getSearchSuggestions } from "@/lib/api/search";
+import { getSearchSuggestions, BookSuggestion } from "@/lib/api/search";
 
 export default function SearchBar() {
 	const router = useRouter();
 	const [query, setQuery] = useState("");
-	const [suggestions, setSuggestions] = useState<string[]>([]);
+	const [suggestions, setSuggestions] = useState<BookSuggestion[]>([]);
 	const [isOpen, setIsOpen] = useState(false);
 
-	// 2. API 호출
 	const fetchSuggestions = async (q: string) => {
 		const list = await getSearchSuggestions(q);
 		setSuggestions(list);
 	};
-
-	// 3. Debounced 함수 생성
 	const debouncedFetch = useRef(debounce(fetchSuggestions, 300)).current;
 
-	// 4. query 변경 시 디바운스된 API 호출
 	useEffect(() => {
 		debouncedFetch(query);
 	}, [query, debouncedFetch]);
 
-	// TODO: 쿼리 수정 필요
-	// 5. 검색 실행
 	const handleSearch = (q: string) => {
 		const trimmed = q.trim();
 		if (!trimmed) return;
-		router.push(`/search?query=${encodeURIComponent(trimmed)}`);
+		router.push(`/search?keyword=${encodeURIComponent(trimmed)}`);
 		setIsOpen(false);
 	};
 
@@ -46,9 +39,7 @@ export default function SearchBar() {
 					setIsOpen(true);
 				}}
 				onKeyDown={(e) => {
-					if (e.key === "Enter") {
-						handleSearch(query);
-					}
+					if (e.key === "Enter") handleSearch(query);
 				}}
 				onBlur={() => setTimeout(() => setIsOpen(false), 100)}
 				className='w-full px-3 py-2 rounded-md border focus:outline-none focus:ring'
@@ -57,16 +48,24 @@ export default function SearchBar() {
 
 			{isOpen && suggestions.length > 0 && (
 				<ul className='absolute z-20 w-full bg-white border rounded-md mt-1 max-h-60 overflow-auto shadow'>
-					{suggestions.map((s, i) => (
+					{suggestions.slice(0, 3).map((book) => (
 						<li
-							key={i}
+							key={book.id}
 							onMouseDown={() => {
-								// 추천어 클릭 시 바로 검색
-								handleSearch(s);
+								router.push(`/books/${book.id}`);
+								setIsOpen(false);
 							}}
-							className='px-3 py-2 hover:bg-gray-100 cursor-pointer'
+							className='flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer'
 						>
-							{s}
+							<img
+								src={book.frontCoverImageUrl}
+								alt={book.title}
+								className='w-10 h-14 object-cover rounded'
+							/>
+							<div>
+								<div className='font-medium'>{book.title}</div>
+								<div className='text-xs text-gray-500'>{book.author}</div>
+							</div>
 						</li>
 					))}
 				</ul>

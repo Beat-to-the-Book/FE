@@ -1,3 +1,4 @@
+// src//app/(main)/page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
@@ -5,13 +6,14 @@ import { useBehaviorStore } from "@/store/behaviorStore";
 import { fetchBooks, fetchRecommendBooks } from "@/lib/api/book";
 import { Book, RecommendedBook } from "@/lib/types/book";
 import BookItem from "@/components/books/BookItem";
+import RecommendedBookItem from "@/components/books/RecommendedBookItem";
 
 export default function Home() {
 	const { isAuthenticated } = useAuthStore();
 	const behaviors = useBehaviorStore((s) => s.behaviors);
 
 	const [allBooks, setAllBooks] = useState<Book[]>([]);
-	const [recBooks, setRecBooks] = useState<Book[]>([]);
+	const [recBooks, setRecBooks] = useState<RecommendedBook[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -29,14 +31,14 @@ export default function Home() {
 		const loadRec = async () => {
 			if (!isAuthenticated) return;
 			try {
-				const recs = await fetchRecommendBooks(behaviors.length ? behaviors : null);
+				const recs = await fetchRecommendBooks();
 
 				if (recs.length) {
 					const mapped = recs.map(
-						(r: RecommendedBook): Book => ({
-							id: r.bookId,
+						(r: RecommendedBook): RecommendedBook => ({
+							bookId: r.bookId,
 							title: r.title,
-							coverImage: r.coverImage,
+							coverImageUrl: r.coverImageUrl,
 							author: (r as any).author ?? "",
 						})
 					);
@@ -50,7 +52,7 @@ export default function Home() {
 
 		/** 순차 실행 */
 		Promise.all([loadAll(), loadRec()]).finally(() => setLoading(false));
-	}, [isAuthenticated, behaviors]);
+	}, [isAuthenticated]);
 
 	/* ──────────────── 렌더 ──────────────── */
 	if (loading) return <div className='min-h-screen p-6'>로딩 중...</div>;
@@ -63,7 +65,15 @@ export default function Home() {
 					<h1 className='text-3xl font-bold text-stateBlue mb-4'>추천 도서</h1>
 					<div className='flex flex-wrap justify-center gap-6 mb-10'>
 						{recBooks.map((b) => (
-							<BookItem key={b.id} book={b} />
+							<RecommendedBookItem
+								key={b.bookId}
+								book={{
+									bookId: b.bookId,
+									title: b.title,
+									author: (b as any).author ?? "",
+									coverImageUrl: (b as any).coverImage ?? null,
+								}}
+							/>
 						))}
 					</div>
 				</>

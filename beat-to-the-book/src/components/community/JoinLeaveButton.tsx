@@ -7,13 +7,11 @@ import { handleApiError } from "@/lib/api/utils";
 
 type JoinLeaveButtonProps = {
 	groupId: number;
-	token: string;
 	isMember: boolean;
 };
 
 export default function JoinLeaveButton({
 	groupId,
-	token,
 	isMember: initialIsMember,
 }: JoinLeaveButtonProps) {
 	const router = useRouter();
@@ -23,7 +21,7 @@ export default function JoinLeaveButton({
 	const handleJoin = async () => {
 		try {
 			setError(null);
-			await joinGroup(groupId, token);
+			await joinGroup(groupId);
 			setIsMember(true);
 		} catch (error) {
 			setError(error.message || "그룹 참여 실패");
@@ -34,7 +32,7 @@ export default function JoinLeaveButton({
 	const handleLeave = async () => {
 		try {
 			setError(null);
-			await leaveGroup(groupId, token);
+			await leaveGroup(groupId);
 			setIsMember(false);
 		} catch (error) {
 			setError(error.message || "그룹 나가기 실패");

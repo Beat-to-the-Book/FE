@@ -2,8 +2,8 @@
 export type Group = {
 	id: number;
 	name: string;
-	bookName: string;
-	createdAt: string;
-	creatorId: string;
-	memberCount: number;
+	bookName?: string;
+	createdAt?: string;
+	creatorId?: string;
+	memberCount?: number;
 };

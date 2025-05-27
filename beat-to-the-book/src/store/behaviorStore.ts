@@ -5,8 +5,8 @@ import { persist } from "zustand/middleware";
 // 유저 행동 로그 타입
 export interface UserBehavior {
 	bookId: number;
-	clickCount: number;
 	stayTime: number;
+	scrollDepth: number;
 }
 
 type BehaviorState = {
@@ -24,10 +24,11 @@ export const useBehaviorStore = create<BehaviorState>()(
 				const idx = list.findIndex((b) => b.bookId === entry.bookId);
 				if (idx > -1) {
 					const updated = [...list];
+					const prev = updated[idx];
 					updated[idx] = {
 						bookId: entry.bookId,
-						clickCount: updated[idx].clickCount + entry.clickCount,
-						stayTime: updated[idx].stayTime + entry.stayTime,
+						stayTime: prev.stayTime + entry.stayTime,
+						scrollDepth: Math.max(prev.scrollDepth, entry.scrollDepth),
 					};
 					set({ behaviors: updated });
 				} else {

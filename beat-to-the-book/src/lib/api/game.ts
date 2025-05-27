@@ -1,14 +1,21 @@
 // src/lib/api/game.ts
-import api from "./axios";
+import api from "@/lib/api/axios";
 
-// TODO: 게임 점수 API 문서 확인 후 수정
-
-export async function submitScore(score: number) {
-	const res = await api.post("/game/score", { score });
-	return res.data; // { highScore: number, rank: ... }
+export interface BookHistoryItem {
+	id: number;
+	title: string;
+	author: string;
+	genre: string;
+	price: number;
+	publisher: string;
+	publishDate: string;
+	leftCoverImageUrl: string;
+	frontCoverImageUrl: string;
+	backCoverImageUrl: string;
 }
 
-export async function fetchHighScore() {
-	const res = await api.get<{ highScore: number }>("/game/highscore");
-	return res.data.highScore;
-}
+export const getPurchaseHistory = () =>
+	api.get<BookHistoryItem[]>("/purchase/history").then((res) => res.data);
+
+export const getRentalHistory = () =>
+	api.get<BookHistoryItem[]>("/rental/history").then((res) => res.data);
