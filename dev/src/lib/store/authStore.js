@@ -17,6 +17,8 @@ const useAuthStore = create(
 			},
 
 			clearAuth: () => {
+				// 로컬스토리지에서 토큰 제거
+				localStorage.removeItem("token");
 				set({
 					token: null,
 					isAuthenticated: false,

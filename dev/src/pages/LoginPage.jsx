@@ -26,10 +26,10 @@ const LoginPage = () => {
 
 		try {
 			const response = await authAPI.login(formData);
-			const { token, userId } = response.data;
-			setAuth(token, userId);
+			const { token } = response.data.data;
+			setAuth(token, formData.userId);
 			navigate("/");
-		} catch (_) {
+		} catch (error) {
 			setError("로그인에 실패했습니다. 아이디와 비밀번호를 확인해주세요.");
 		}
 	};
