@@ -4,7 +4,9 @@ import { useAuthStore } from "@/store/authStore";
 import { SigninFormData, SignupFormData } from "@/lib/validation/authSchema";
 
 export const signin = async (data: SigninFormData) => {
-	await axios.post("/auth/login", data);
+	const response = await axios.post("/auth/login", data);
+	// JWT 토큰 저장
+	useAuthStore.getState().setToken(response.data.token);
 	// 로그인 직후 사용자 정보 조회
 	await checkAuth();
 };
@@ -16,7 +18,7 @@ export const signup = async (data: SignupFormData) => {
 
 export const logout = async () => {
 	await axios.post("/auth/logout");
-	useAuthStore.getState().clearUser();
+	useAuthStore.getState().clearAuth();
 };
 
 export const checkAuth = async () => {

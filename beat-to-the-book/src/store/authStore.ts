@@ -11,18 +11,22 @@ type User = {
 
 type AuthState = {
 	user: User | null;
+	token: string | null;
 	isAuthenticated: boolean;
 	setUser: (user: User) => void;
-	clearUser: () => void;
+	setToken: (token: string) => void;
+	clearAuth: () => void;
 };
 
 export const useAuthStore = create<AuthState>()(
 	persist(
 		(set) => ({
 			user: null,
+			token: null,
 			isAuthenticated: false,
 			setUser: (user) => set({ user, isAuthenticated: true }),
-			clearUser: () => set({ user: null, isAuthenticated: false }),
+			setToken: (token) => set({ token }),
+			clearAuth: () => set({ user: null, token: null, isAuthenticated: false }),
 		}),
 		{
 			name: "auth-storage", // localStorage key
