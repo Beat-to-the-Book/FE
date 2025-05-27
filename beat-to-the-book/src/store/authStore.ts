@@ -1,12 +1,12 @@
-// src/store/authStore.ts
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 type User = {
-	id: string;
-	nickname: string;
+	userId: string;
+	username: string;
 	email: string;
-	role: "USER" | "ADMIN";
-	profileImage: string;
+	role: "ROLE_USER" | "ROLE_ADMIN";
+	profileImageUrl?: string;
 };
 
 type AuthState = {
@@ -16,9 +16,19 @@ type AuthState = {
 	clearUser: () => void;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
-	user: null,
-	isAuthenticated: false,
-	setUser: (user) => set({ user, isAuthenticated: true }),
-	clearUser: () => set({ user: null, isAuthenticated: false }),
-}));
+export const useAuthStore = create<AuthState>()(
+	persist(
+		(set) => ({
+			user: null,
+			isAuthenticated: false,
+			setUser: (user) => set({ user, isAuthenticated: true }),
+			clearUser: () => set({ user: null, isAuthenticated: false }),
+		}),
+		{
+			name: "auth-storage", // localStorage key
+			storage: createJSONStorage(() => localStorage), // 올바른 PersistStorage 타입 사용
+			// partialize: state => ({ user: state.user }),
+			// → 저장할 상태를 일부로 제한하고 싶다면 사용
+		}
+	)
+);

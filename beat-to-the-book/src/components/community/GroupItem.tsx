@@ -1,14 +1,14 @@
 // src/components/community/GroupItem.tsx
+"use client";
+
 import Link from "next/link";
 import { Group } from "@/lib/types/group";
 
 export default function GroupItem({ group }: { group: Group }) {
 	return (
-		<Link href={`/community/${group.id}`}>
-			<div className='bg-white shadow-md rounded-lg p-4 hover:shadow-lg transition-shadow'>
-				<h3 className='text-lg font-semibold text-stateBlue'>{group.name}</h3>
-				<p className='text-gray'>책: {group.bookName}</p>
-				<p className='text-gray'>멤버: {group.memberCount}</p>
+		<Link href={`/community/${group.id}`} className='block'>
+			<div className='bg-white rounded-xl shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1 p-6 flex flex-col justify-center items-center w-52 h-52'>
+				<h3 className='text-xl font-semibold text-stateBlue text-center truncate'>{group.name}</h3>
 			</div>
 		</Link>
 	);

@@ -12,8 +12,8 @@ export const fetchMyGroups = async (): Promise<Group[]> => {
 	return response.data;
 };
 
-export const createGroup = async (bookName: string): Promise<Group> => {
-	const response = await axios.post("/groups", { bookName });
+export const createGroup = async (groupName: string): Promise<Group> => {
+	const response = await axios.post("/groups", { name: groupName });
 	return response.data;
 };
 

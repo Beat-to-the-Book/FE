@@ -3,28 +3,19 @@
 
 import React, { useEffect } from "react";
 import QueryProvider from "@/components/providers/QueryProvider";
-import BehaviorBatchSender from "@/components/books/BehaviorBatchSender";
-import "@/app/globals.css"; // Tailwind CSS
-import axios from "@/lib/api/axios";
-import { useAuthStore } from "@/store/authStore";
+import "@/app/globals.css";
+import { checkAuth } from "@/lib/api/auth";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-	const setUser = useAuthStore((state) => state.setUser);
-	const clearUser = useAuthStore((state) => state.clearUser);
-
-	useEffect(() => {
-		// 클라이언트에서만 /auth/me 호출하여 인증 상태 복원
-		axios
-			.get("/auth/me")
-			.then((res) => setUser(res.data))
-			.catch(() => clearUser());
-	}, [setUser, clearUser]);
+	// TODO: 다른 API가 쿠키로 변환되지 않았기 때문에 임시 주석처리
+	// useEffect(() => {
+	// 	checkAuth();
+	// }, []);
 
 	return (
 		<html lang='ko'>
 			<body>
 				<QueryProvider>{children}</QueryProvider>
-				<BehaviorBatchSender />
 			</body>
 		</html>
 	);

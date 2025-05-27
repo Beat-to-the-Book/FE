@@ -8,11 +8,11 @@ import { useAuthStore } from "@/store/authStore";
 
 export default function CreateGroupPage() {
 	const router = useRouter();
-	const { token } = useAuthStore();
-	const [formData, setFormData] = useState({ bookName: "" });
+	const { isAuthenticated } = useAuthStore();
+	const [formData, setFormData] = useState({ groupName: "" });
 	const [error, setError] = useState<string | null>(null);
 
-	if (!token) {
+	if (!isAuthenticated) {
 		router.push("/auth/signin");
 		return null;
 	}
@@ -21,7 +21,7 @@ export default function CreateGroupPage() {
 		e.preventDefault();
 		try {
 			setError(null);
-			await createGroup(formData.bookName, token);
+			await createGroup(formData.groupName);
 			router.push("/community");
 		} catch (error) {
 			if (error instanceof ZodError) {
@@ -41,8 +41,8 @@ export default function CreateGroupPage() {
 						<input
 							type='text'
 							placeholder='책 이름'
-							value={formData.bookName}
-							onChange={(e) => setFormData({ ...formData, bookName: e.target.value })}
+							value={formData.groupName}
+							onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
 							className='w-full p-2 border border-gray rounded-md focus:outline-none focus:ring-2 focus:ring-forestGreen'
 						/>
 						{error && <p className='text-red-500 text-sm mt-1'>{error}</p>}

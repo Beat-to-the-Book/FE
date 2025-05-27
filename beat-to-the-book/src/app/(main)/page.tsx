@@ -1,3 +1,4 @@
+// src//app/(main)/page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
@@ -14,8 +15,6 @@ export default function Home() {
 	const [allBooks, setAllBooks] = useState<Book[]>([]);
 	const [recBooks, setRecBooks] = useState<RecommendedBook[]>([]);
 	const [loading, setLoading] = useState(true);
-
-	// TODO: book 인자 변경
 
 	useEffect(() => {
 		/** 전체 도서 먼저 로드 */
@@ -53,7 +52,7 @@ export default function Home() {
 
 		/** 순차 실행 */
 		Promise.all([loadAll(), loadRec()]).finally(() => setLoading(false));
-	}, [isAuthenticated, behaviors]);
+	}, [isAuthenticated]);
 
 	/* ──────────────── 렌더 ──────────────── */
 	if (loading) return <div className='min-h-screen p-6'>로딩 중...</div>;

@@ -28,7 +28,7 @@ export const fetchRecommendBooks = async (): Promise<RecommendedBook[]> => {
 
 export const logBookBehavior = async (behavior: UserBehavior[]): Promise<void> => {
 	try {
-		await axios.post("/log/behavior", { behavior });
+		await axios.post("/behavior/log", { behavior });
 	} catch (error) {
 		console.error("책 행동 데이터 로깅 실패:", error);
 		throw error;
