@@ -9,7 +9,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 		<div>
 			<Header />
 			<main>{children}</main>
-			<BehaviorBatchSender />
+			{/* <BehaviorBatchSender /> */}
 		</div>
 	);
 }
