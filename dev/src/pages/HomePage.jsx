@@ -55,7 +55,7 @@ const HomePage = () => {
 		<div className='flex gap-8'>
 			<div className='flex-1 space-y-8'>
 				<h1 className='text-3xl font-bold text-primary'>도서 목록</h1>
-				<div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6'>
+				<div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6'>
 					{books.map((book) => (
 						<div
 							key={book.id}
@@ -79,7 +79,7 @@ const HomePage = () => {
 					))}
 				</div>
 			</div>
-			<div className='hidden lg:block'>
+			<div className='hidden lg:block fixed right-8 top-24'>
 				<RecommendedBooks layout='vertical' />
 			</div>
 		</div>

@@ -1,24 +1,20 @@
 import axios from "axios";
 
-const api = axios.create({
+// 기본 인스턴스 (토큰 불필요)
+const publicApi = axios.create({
 	baseURL: "http://localhost:8082/api",
 	headers: {
 		"Content-Type": "application/json",
 	},
 });
 
-// 요청 인터셉터 추가
-api.interceptors.request.use(
-	(config) => {
-		const token = localStorage.getItem("token");
-		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
-		}
-		return config;
+// 인증이 필요한 인스턴스
+const privateApi = axios.create({
+	baseURL: "http://localhost:8082/api",
+	headers: {
+		"Content-Type": "application/json",
+		Authorization: `Bearer ${JSON.parse(localStorage.getItem("auth-storage")).state.token}`,
 	},
-	(error) => {
-		return Promise.reject(error);
-	}
-);
+});
 
-export default api;
+export { publicApi, privateApi };

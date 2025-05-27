@@ -176,7 +176,9 @@ const BookDetailPage = () => {
 			</div>
 
 			<div className='max-w-4xl mx-auto'>
-				<RecommendedBooks layout='horizontal' />
+				<div className='w-180'>
+					<RecommendedBooks layout='horizontal' />
+				</div>
 			</div>
 		</div>
 	);

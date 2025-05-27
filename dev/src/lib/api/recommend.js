@@ -1,7 +1,7 @@
-import api from "./axios";
+import { privateApi } from "./axios";
 
 export const recommendAPI = {
-	getRecommendations: () => api.post("/recommend"),
+	getRecommendations: (data) => privateApi.post("/recommend", data),
 
-	logBehavior: (data) => api.post("/behavior/log", data),
+	logBehavior: (data) => privateApi.post("/behavior/log", data),
 };

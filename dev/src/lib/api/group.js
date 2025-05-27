@@ -1,16 +1,18 @@
-import api from "./axios";
+import { privateApi } from "./axios";
 
 export const groupAPI = {
-	create: (name) => api.post("/groups", { name }),
+	create: (data) => privateApi.post("/groups", data),
 
-	join: (groupId) => api.post(`/groups/${groupId}/members/join`),
+	join: (groupId) => privateApi.post(`/groups/${groupId}/members/join`),
 
-	leave: (groupId) => api.delete(`/groups/${groupId}/members/leave`),
+	leave: (groupId) => privateApi.delete(`/groups/${groupId}/members/leave`),
 
-	getMembers: (groupId) => api.get(`/groups/${groupId}/members`),
+	getMembers: (groupId) => privateApi.get(`/groups/${groupId}/members`),
 
 	kickMember: (groupId, targetUserId) =>
-		api.delete(`/groups/${groupId}/members/kick/${targetUserId}`),
+		privateApi.delete(`/groups/${groupId}/members/kick/${targetUserId}`),
 
-	getMyGroups: () => api.get("/groups/my"),
+	getMyGroups: () => privateApi.get("/groups/my"),
+
+	getAllGroups: () => privateApi.get("/groups"),
 };
