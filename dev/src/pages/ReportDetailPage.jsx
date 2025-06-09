@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { reportAPI } from "../lib/api/report";
 import useAuthStore from "../lib/store/authStore";
+import EditReportModal from "../components/EditReportModal";
 
 const ReportDetailPage = () => {
 	const { reportId } = useParams();
@@ -11,37 +12,45 @@ const ReportDetailPage = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [isAuthor, setIsAuthor] = useState(false);
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 	useEffect(() => {
 		const fetchReport = async () => {
 			try {
 				setLoading(true);
-				// 공개 독후감 조회
-				const publicResponse = await reportAPI.getPublicReport(reportId);
-				const publicReport = publicResponse.data;
-				setReport(publicReport);
-
 				// 로그인한 사용자의 경우 본인 독후감 목록 조회
 				if (isAuthenticated) {
 					try {
 						const myReportsResponse = await reportAPI.getMyReports();
 						const myReports = myReportsResponse.data;
 						// 본인 독후감 중 현재 보고 있는 독후감이 있는지 확인
-						const isMyReport = myReports.some((report) => report.id === parseInt(reportId));
-						setIsAuthor(isMyReport);
+						const myReport = myReports.find((report) => report.id === parseInt(reportId));
+						if (myReport) {
+							setReport(myReport);
+							setIsAuthor(true);
+							setError("");
+							return;
+						}
 					} catch (error) {
 						console.error("본인 독후감 조회 에러:", error);
 					}
 				}
 
-				setError("");
+				// 본인 독후감이 아닌 경우 공개 독후감 조회
+				try {
+					const publicResponse = await reportAPI.getPublicReport(reportId);
+					setReport(publicResponse.data);
+					setError("");
+				} catch (error) {
+					if (error.response?.status === 404) {
+						setError("존재하지 않는 독후감입니다.");
+					} else {
+						setError("독후감을 불러오는데 실패했습니다.");
+					}
+				}
 			} catch (error) {
 				console.error("독후감 조회 에러:", error);
-				if (error.response?.status === 404) {
-					setError("존재하지 않는 독후감입니다.");
-				} else {
-					setError("독후감을 불러오는데 실패했습니다.");
-				}
+				setError("독후감을 불러오는데 실패했습니다.");
 			} finally {
 				setLoading(false);
 			}
@@ -69,6 +78,25 @@ const ReportDetailPage = () => {
 			} else {
 				alert("독후감 삭제에 실패했습니다.");
 			}
+		}
+	};
+
+	const handleEditSuccess = async () => {
+		try {
+			// 독후감 정보 새로고침
+			if (isAuthor) {
+				const myReportsResponse = await reportAPI.getMyReports();
+				const myReports = myReportsResponse.data;
+				const updatedReport = myReports.find((report) => report.id === parseInt(reportId));
+				if (updatedReport) {
+					setReport(updatedReport);
+					return;
+				}
+			}
+			const response = await reportAPI.getPublicReport(reportId);
+			setReport(response.data);
+		} catch (error) {
+			console.error("독후감 새로고침 에러:", error);
 		}
 	};
 
@@ -108,7 +136,7 @@ const ReportDetailPage = () => {
 					{isAuthor && (
 						<div className='flex space-x-2'>
 							<button
-								onClick={() => navigate(`/reports/${reportId}/edit`)}
+								onClick={() => setIsEditModalOpen(true)}
 								className='bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark'
 							>
 								수정
@@ -147,6 +175,14 @@ const ReportDetailPage = () => {
 					</button>
 				</div>
 			</div>
+
+			{/* 수정 모달 */}
+			<EditReportModal
+				isOpen={isEditModalOpen}
+				onClose={() => setIsEditModalOpen(false)}
+				report={report}
+				onSuccess={handleEditSuccess}
+			/>
 		</div>
 	);
 };
