@@ -7,6 +7,7 @@ import useAuthStore from "../lib/store/authStore";
 import useBehaviorStore from "../lib/store/behaviorStore";
 import RecommendedBooks from "../components/RecommendedBooks";
 import useCartStore from "../lib/store/cartStore";
+import EditReportModal from "../components/EditReportModal";
 
 // 임시 데이터
 const TEMP_REVIEWS = [
@@ -65,6 +66,8 @@ const BookDetailPage = () => {
 	const [myReports, setMyReports] = useState([]);
 	const [reportsLoading, setReportsLoading] = useState(false);
 	const [reportsError, setReportsError] = useState("");
+	const [selectedReport, setSelectedReport] = useState(null);
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 	useEffect(() => {
 		const fetchBook = async () => {
@@ -276,6 +279,16 @@ const BookDetailPage = () => {
 
 	const handleBookClick = (bookId) => {
 		navigate(`/book/${bookId}`);
+	};
+
+	const handleEditSuccess = async () => {
+		try {
+			// 독후감 목록 새로고침
+			const response = await reportAPI.getBookReports(bookId);
+			setReports(response.data);
+		} catch (error) {
+			console.error("독후감 목록 새로고침 에러:", error);
+		}
 	};
 
 	if (loading) {
@@ -509,7 +522,10 @@ const BookDetailPage = () => {
 													{isAuthenticated && isMyReport && (
 														<div className='flex space-x-2'>
 															<button
-																onClick={() => navigate(`/reports/${report.id}/edit`)}
+																onClick={() => {
+																	setSelectedReport(report);
+																	setIsEditModalOpen(true);
+																}}
 																className='text-primary hover:text-primary-dark'
 															>
 																수정
@@ -540,6 +556,17 @@ const BookDetailPage = () => {
 					<RecommendedBooks layout='horizontal' />
 				</div>
 			</div>
+
+			{/* 수정 모달 */}
+			<EditReportModal
+				isOpen={isEditModalOpen}
+				onClose={() => {
+					setIsEditModalOpen(false);
+					setSelectedReport(null);
+				}}
+				report={selectedReport}
+				onSuccess={handleEditSuccess}
+			/>
 		</div>
 	);
 };

@@ -167,37 +167,34 @@ const MyPage = () => {
 
 			{/* 독후감 탭 */}
 			{activeTab === "reports" && (
-				<div className='space-y-6'>
+				<div className='space-y-4'>
 					{myReports.map((report) => (
 						<div
 							key={report.id}
-							className='bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer'
-							onClick={() => navigate(`/book/${report.bookId}`)}
+							className='bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow'
+							onClick={() => navigate(`/reports/${report.id}`)}
 						>
-							<div className='flex justify-between items-start mb-4'>
+							<div className='flex justify-between items-start'>
 								<div>
-									<h3 className='text-xl font-semibold text-gray-900 mb-2'>{report.title}</h3>
-									<p className='text-gray-600'>{report.bookTitle}</p>
+									<h3 className='font-semibold text-gray-900'>{report.bookTitle}</h3>
+									<div className='flex items-center space-x-4 text-sm text-gray-500 mt-1'>
+										<span>작성일: {new Date(report.createdAt).toLocaleDateString()}</span>
+										{!report.publicVisible && (
+											<span className='bg-gray-100 px-2 py-1 rounded'>비공개</span>
+										)}
+									</div>
 								</div>
-								<span className='text-sm text-gray-500'>
-									{new Date(report.createdAt).toLocaleDateString()}
-								</span>
-							</div>
-							<p className='text-gray-700 line-clamp-2'>{report.content}</p>
-							<div className='mt-2 flex items-center space-x-2'>
 								<div className='text-yellow-500'>
 									{"★".repeat(report.rating)}
 									{"☆".repeat(5 - report.rating)}
 								</div>
-								<span className='text-sm text-gray-500'>{report.rating}점</span>
-								{report.publicVisible && (
-									<span className='text-xs bg-green-100 text-green-800 px-2 py-1 rounded'>
-										공개
-									</span>
-								)}
 							</div>
+							<p className='text-gray-600 mt-2 line-clamp-2'>{report.content}</p>
 						</div>
 					))}
+					{myReports.length === 0 && (
+						<div className='text-center text-gray-500 py-4'>작성한 독후감이 없습니다.</div>
+					)}
 				</div>
 			)}
 
