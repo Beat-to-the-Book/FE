@@ -24,9 +24,9 @@ const RecommendedBooks = ({ layout = "vertical" }) => {
 
 	return (
 		<div className='bg-white rounded-lg shadow-md p-4'>
-			<div className={layout === "vertical" ? "w-36" : "w-full"}>
-				<h2 className='text-base font-bold text-primary mb-2'>추천 도서</h2>
-				<div className={layout === "vertical" ? "space-y-2" : "grid grid-cols-3 gap-2"}>
+			<div className={layout === "vertical" ? "w-32" : "w-full"}>
+				<h2 className='text-lg font-bold text-primary mb-3'>추천 도서</h2>
+				<div className={layout === "vertical" ? "space-y-3" : "grid grid-cols-3 gap-2"}>
 					{recommendedBooks.slice(0, layout === "vertical" ? 3 : 5).map((book) => (
 						<div
 							key={book.bookId}
@@ -41,10 +41,10 @@ const RecommendedBooks = ({ layout = "vertical" }) => {
 								/>
 							</div>
 							<div className='p-2'>
-								<h3 className='text-xs font-semibold text-gray-900 mb-1 line-clamp-2'>
+								<h3 className='text-sm font-semibold text-gray-900 mb-1 line-clamp-2'>
 									{book.title}
 								</h3>
-								<p className='text-[10px] text-gray-600'>{book.author}</p>
+								<p className='text-xs text-gray-600'>{book.author}</p>
 							</div>
 						</div>
 					))}
