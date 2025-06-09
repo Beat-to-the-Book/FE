@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
 import { purchaseAPI, rentalAPI } from "../lib/api/purchase";
+import { reportAPI } from "../lib/api/report";
 import useAuthStore from "../lib/store/authStore";
 import useBehaviorStore from "../lib/store/behaviorStore";
 import RecommendedBooks from "../components/RecommendedBooks";
@@ -51,18 +52,31 @@ const BookDetailPage = () => {
 	const { isAuthenticated, userId } = useAuthStore();
 	const { initBehavior, updateScrollDepth, logBehavior } = useBehaviorStore();
 	const timerRef = useRef(null);
+	const scrollTimerRef = useRef(null);
 	const { addItem } = useCartStore();
 	const [activeTab, setActiveTab] = useState("reviews"); // 'reviews' or 'reports'
 	const [newReview, setNewReview] = useState({ rating: 5, content: "" });
-	const [newReport, setNewReport] = useState({ title: "", content: "" });
+	const [newReport, setNewReport] = useState({
+		content: "",
+		rating: 5,
+		publicVisible: true,
+	});
+	const [reports, setReports] = useState([]);
+	const [reportsLoading, setReportsLoading] = useState(false);
+	const [reportsError, setReportsError] = useState("");
 
 	useEffect(() => {
 		const fetchBook = async () => {
 			try {
 				const response = await bookAPI.getById(bookId);
 				setBook(response.data);
-			} catch (_) {
-				setError("책 정보를 불러오는데 실패했습니다.");
+			} catch (error) {
+				console.error("책 정보 조회 에러:", error);
+				if (error.response?.status === 404) {
+					setError("존재하지 않는 책입니다.");
+				} else {
+					setError("책 정보를 불러오는데 실패했습니다.");
+				}
 			} finally {
 				setLoading(false);
 			}
@@ -72,20 +86,53 @@ const BookDetailPage = () => {
 	}, [bookId]);
 
 	useEffect(() => {
+		const fetchReports = async () => {
+			try {
+				setReportsLoading(true);
+				const response = await reportAPI.getBookReports(bookId);
+				setReports(response.data);
+				setReportsError("");
+			} catch (error) {
+				console.error("독후감 조회 에러:", error);
+				if (error.response?.status === 404) {
+					setReportsError("존재하지 않는 책입니다.");
+				} else if (error.response?.status === 401) {
+					setReportsError("로그인이 필요합니다.");
+				} else {
+					setReportsError("독후감을 불러오는데 실패했습니다.");
+				}
+			} finally {
+				setReportsLoading(false);
+			}
+		};
+
+		if (activeTab === "reports") {
+			fetchReports();
+		}
+	}, [bookId, activeTab]);
+
+	useEffect(() => {
 		// 행동 로깅 초기화
 		initBehavior(bookId);
 
 		// 스크롤 이벤트 핸들러
 		const handleScroll = () => {
-			const scrollPercent =
-				(window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
-			updateScrollDepth(Math.round(scrollPercent));
+			// 스크롤 이벤트 디바운싱
+			if (scrollTimerRef.current) {
+				clearTimeout(scrollTimerRef.current);
+			}
+
+			scrollTimerRef.current = setTimeout(() => {
+				const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+				const scrollPercent = (window.scrollY / scrollHeight) * 100;
+				updateScrollDepth(Math.min(Math.round(scrollPercent), 100));
+			}, 100);
 		};
 
-		// 30초마다 행동 로그 전송
+		// 1초마다 stayTime 업데이트
 		timerRef.current = setInterval(() => {
 			logBehavior();
-		}, 30000);
+		}, 1000);
 
 		window.addEventListener("scroll", handleScroll);
 
@@ -93,6 +140,9 @@ const BookDetailPage = () => {
 			window.removeEventListener("scroll", handleScroll);
 			if (timerRef.current) {
 				clearInterval(timerRef.current);
+			}
+			if (scrollTimerRef.current) {
+				clearTimeout(scrollTimerRef.current);
 			}
 		};
 	}, [bookId, initBehavior, updateScrollDepth, logBehavior]);
@@ -156,16 +206,63 @@ const BookDetailPage = () => {
 		setNewReview({ rating: 5, content: "" });
 	};
 
-	const handleReportSubmit = (e) => {
+	const handleReportSubmit = async (e) => {
 		e.preventDefault();
 		if (!isAuthenticated) {
 			alert("로그인이 필요합니다.");
 			navigate("/login");
 			return;
 		}
-		// TODO: API 연동
-		alert("독후감이 등록되었습니다.");
-		setNewReport({ title: "", content: "" });
+
+		try {
+			await reportAPI.create({
+				bookId: parseInt(bookId),
+				content: newReport.content,
+				rating: newReport.rating,
+				publicVisible: newReport.publicVisible,
+			});
+			alert("독후감이 등록되었습니다.");
+			setNewReport({ content: "", rating: 5, publicVisible: true });
+			// 독후감 목록 새로고침
+			const response = await reportAPI.getBookReports(bookId);
+			setReports(response.data);
+		} catch (error) {
+			console.error("독후감 등록 에러:", error);
+			if (error.response?.status === 401) {
+				alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+				navigate("/login");
+			} else {
+				alert("독후감 등록에 실패했습니다.");
+			}
+		}
+	};
+
+	const handleDeleteReport = async (reportId) => {
+		if (!window.confirm("정말로 이 독후감을 삭제하시겠습니까?")) {
+			return;
+		}
+
+		try {
+			await reportAPI.deleteMyReport(reportId);
+			alert("독후감이 삭제되었습니다.");
+			// 독후감 목록 새로고침
+			const response = await reportAPI.getBookReports(book.id);
+			setReports(response.data);
+		} catch (error) {
+			console.error("독후감 삭제 에러:", error);
+			if (error.response?.status === 401) {
+				alert("로그인이 필요합니다.");
+				navigate("/login");
+			} else if (error.response?.status === 403) {
+				alert("삭제 권한이 없습니다.");
+			} else {
+				alert("독후감 삭제에 실패했습니다.");
+			}
+		}
+	};
+
+	const handleBookClick = (bookId) => {
+		navigate(`/book/${bookId}`);
 	};
 
 	if (loading) {
@@ -322,14 +419,20 @@ const BookDetailPage = () => {
 						<div className='space-y-6'>
 							{/* 독후감 작성 폼 */}
 							<form onSubmit={handleReportSubmit} className='space-y-4'>
-								<input
-									type='text'
-									value={newReport.title}
-									onChange={(e) => setNewReport({ ...newReport, title: e.target.value })}
-									placeholder='독후감 제목'
-									className='w-full p-2 border rounded'
-									required
-								/>
+								<div className='flex items-center space-x-2'>
+									<label className='font-semibold'>평점:</label>
+									<select
+										value={newReport.rating}
+										onChange={(e) => setNewReport({ ...newReport, rating: Number(e.target.value) })}
+										className='border rounded px-2 py-1'
+									>
+										{[5, 4, 3, 2, 1].map((rating) => (
+											<option key={rating} value={rating}>
+												{rating}점
+											</option>
+										))}
+									</select>
+								</div>
 								<textarea
 									value={newReport.content}
 									onChange={(e) => setNewReport({ ...newReport, content: e.target.value })}
@@ -337,6 +440,20 @@ const BookDetailPage = () => {
 									className='w-full h-32 p-2 border rounded'
 									required
 								/>
+								<div className='flex items-center space-x-2'>
+									<input
+										type='checkbox'
+										id='publicVisible'
+										checked={newReport.publicVisible}
+										onChange={(e) =>
+											setNewReport({ ...newReport, publicVisible: e.target.checked })
+										}
+										className='rounded border-gray-300 text-primary focus:ring-primary'
+									/>
+									<label htmlFor='publicVisible' className='text-sm text-gray-600'>
+										공개로 설정
+									</label>
+								</div>
 								<button
 									type='submit'
 									className='bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark'
@@ -346,18 +463,54 @@ const BookDetailPage = () => {
 							</form>
 
 							{/* 독후감 목록 */}
-							<div className='space-y-4'>
-								{TEMP_BOOK_REPORTS.map((report) => (
-									<div key={report.id} className='border-b pb-4'>
-										<h3 className='font-semibold text-lg mb-2'>{report.title}</h3>
-										<p className='text-gray-700'>{report.content}</p>
-										<div className='flex justify-between items-center mt-2'>
-											<div className='text-sm text-gray-500'>{report.userId}</div>
-											<div className='text-sm text-gray-500'>{report.createdAt}</div>
+							{reportsLoading ? (
+								<div className='flex justify-center py-4'>
+									<div className='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary'></div>
+								</div>
+							) : reportsError ? (
+								<div className='text-red-500 text-center py-4'>{reportsError}</div>
+							) : (
+								<div className='space-y-4'>
+									{reports.map((report) => (
+										<div key={report.id} className='bg-white rounded-lg shadow p-6 mb-4'>
+											<div className='flex justify-between items-start mb-4'>
+												<div>
+													<div className='flex items-center space-x-2 mb-2'>
+														<span className='font-medium'>{report.authorName}</span>
+														<span className='text-gray-500 text-sm'>
+															{new Date(report.createdAt).toLocaleDateString()}
+														</span>
+														{!report.publicVisible && (
+															<span className='bg-gray-100 px-2 py-1 rounded text-sm'>비공개</span>
+														)}
+													</div>
+													<div className='text-yellow-500'>
+														{"★".repeat(report.rating)}
+														{"☆".repeat(5 - report.rating)}
+													</div>
+												</div>
+												{isAuthenticated && report.authorId === userId && (
+													<div className='flex space-x-2'>
+														<button
+															onClick={() => navigate(`/reports/${report.id}/edit`)}
+															className='text-primary hover:text-primary-dark'
+														>
+															수정
+														</button>
+														<button
+															onClick={() => handleDeleteReport(report.id)}
+															className='text-red-500 hover:text-red-600'
+														>
+															삭제
+														</button>
+													</div>
+												)}
+											</div>
+											<p className='text-gray-700 whitespace-pre-wrap'>{report.content}</p>
 										</div>
-									</div>
-								))}
-							</div>
+									))}
+								</div>
+							)}
 						</div>
 					)}
 				</div>

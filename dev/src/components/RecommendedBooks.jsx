@@ -2,24 +2,57 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useBehaviorStore from "../lib/store/behaviorStore";
 
-const RecommendedBooks = ({ layout = "vertical" }) => {
+const RecommendedBooks = ({ layout = "vertical", onBookClick }) => {
 	const navigate = useNavigate();
-	const { recommendedBooks, loading, error, fetchRecommendations } = useBehaviorStore();
+	const { recommendedBooks = [], loading, error, fetchRecommendations } = useBehaviorStore();
 
 	useEffect(() => {
 		fetchRecommendations();
-	}, []);
+	}, [fetchRecommendations]);
 
 	if (loading) {
-		return <div className='animate-pulse'>로딩중...</div>;
+		return (
+			<div className='bg-white rounded-lg shadow-md p-4'>
+				<div className={layout === "vertical" ? "w-32" : "w-full"}>
+					<h2 className='text-lg font-bold text-primary mb-3'>추천 도서</h2>
+					<div className='animate-pulse space-y-3'>
+						{[...Array(3)].map((_, i) => (
+							<div key={i} className='bg-gray-200 rounded-lg h-48'></div>
+						))}
+					</div>
+				</div>
+			</div>
+		);
 	}
 
 	if (error) {
-		return <div className='text-red-500'>{error}</div>;
+		return (
+			<div className='bg-white rounded-lg shadow-md p-4'>
+				<div className={layout === "vertical" ? "w-32" : "w-full"}>
+					<h2 className='text-lg font-bold text-primary mb-3'>추천 도서</h2>
+					<div className='text-red-500 text-sm'>{error}</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (!recommendedBooks?.length) {
+		return (
+			<div className='bg-white rounded-lg shadow-md p-4'>
+				<div className={layout === "vertical" ? "w-32" : "w-full"}>
+					<h2 className='text-lg font-bold text-primary mb-3'>추천 도서</h2>
+					<div className='text-gray-500 text-sm'>추천 도서가 없습니다.</div>
+				</div>
+			</div>
+		);
 	}
 
 	const handleBookClick = (bookId) => {
-		navigate(`/book/${bookId}`);
+		if (onBookClick) {
+			onBookClick(bookId);
+		} else {
+			navigate(`/book/${bookId}`);
+		}
 	};
 
 	return (

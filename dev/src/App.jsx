@@ -12,6 +12,9 @@ import GroupPage from "./pages/GroupPage";
 import PostPage from "./pages/PostPage";
 import WritePostPage from "./pages/WritePostPage";
 import MyPage from "./pages/MyPage";
+import ReportsPage from "./pages/ReportsPage";
+import WriteReportPage from "./pages/WriteReportPage";
+import ReportDetailPage from "./pages/ReportDetailPage";
 
 function App() {
 	return (
@@ -30,6 +33,10 @@ function App() {
 					<Route path='/community/:groupId' element={<GroupPage />} />
 					<Route path='/community/:groupId/posts/:postId' element={<PostPage />} />
 					<Route path='/community/:groupId/write' element={<WritePostPage />} />
+					<Route path='/reports' element={<ReportsPage />} />
+					<Route path='/reports/:reportId' element={<ReportDetailPage />} />
+					<Route path='/write-report' element={<WriteReportPage />} />
+					<Route path='/write-report/:bookId' element={<WriteReportPage />} />
 				</Routes>
 			</Layout>
 		</Router>

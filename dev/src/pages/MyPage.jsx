@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
 import { purchaseAPI } from "../lib/api/purchase";
 import { rentalAPI } from "../lib/api/rental";
+import { reportAPI } from "../lib/api/report";
 import useAuthStore from "../lib/store/authStore";
 
 // 임시 데이터 (API 연동 전까지 사용)
@@ -66,6 +67,7 @@ const MyPage = () => {
 	const [error, setError] = useState("");
 	const [purchasedBooks, setPurchasedBooks] = useState([]);
 	const [rentedBooks, setRentedBooks] = useState([]);
+	const [myReports, setMyReports] = useState([]);
 
 	useEffect(() => {
 		if (!isAuthenticated) {
@@ -76,9 +78,10 @@ const MyPage = () => {
 		const fetchData = async () => {
 			try {
 				setLoading(true);
-				const [purchasedResponse, rentedResponse] = await Promise.all([
+				const [purchasedResponse, rentedResponse, reportsResponse] = await Promise.all([
 					purchaseAPI.getHistory(),
 					rentalAPI.getHistory(),
+					reportAPI.getMyReports(),
 				]);
 
 				// 중복 제거 및 최신 기록만 유지
@@ -87,6 +90,7 @@ const MyPage = () => {
 
 				setPurchasedBooks(uniquePurchasedBooks);
 				setRentedBooks(uniqueRentedBooks);
+				setMyReports(reportsResponse.data);
 				setLoading(false);
 			} catch (error) {
 				setError("데이터를 불러오는데 실패했습니다.");
@@ -164,7 +168,7 @@ const MyPage = () => {
 			{/* 독후감 탭 */}
 			{activeTab === "reports" && (
 				<div className='space-y-6'>
-					{TEMP_BOOK_REPORTS.map((report) => (
+					{myReports.map((report) => (
 						<div
 							key={report.id}
 							className='bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer'
@@ -175,9 +179,23 @@ const MyPage = () => {
 									<h3 className='text-xl font-semibold text-gray-900 mb-2'>{report.title}</h3>
 									<p className='text-gray-600'>{report.bookTitle}</p>
 								</div>
-								<span className='text-sm text-gray-500'>{report.createdAt}</span>
+								<span className='text-sm text-gray-500'>
+									{new Date(report.createdAt).toLocaleDateString()}
+								</span>
 							</div>
 							<p className='text-gray-700 line-clamp-2'>{report.content}</p>
+							<div className='mt-2 flex items-center space-x-2'>
+								<div className='text-yellow-500'>
+									{"★".repeat(report.rating)}
+									{"☆".repeat(5 - report.rating)}
+								</div>
+								<span className='text-sm text-gray-500'>{report.rating}점</span>
+								{report.publicVisible && (
+									<span className='text-xs bg-green-100 text-green-800 px-2 py-1 rounded'>
+										공개
+									</span>
+								)}
+							</div>
 						</div>
 					))}
 				</div>
