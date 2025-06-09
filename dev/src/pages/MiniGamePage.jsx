@@ -39,7 +39,7 @@ const MiniGamePage = () => {
 
 		// 1. Scene & Camera
 		const scene = new THREE.Scene();
-		scene.background = new THREE.Color(0xf0e6d2);
+		scene.background = new THREE.Color(0xf5e6d3);
 		const camera = new THREE.PerspectiveCamera(
 			75,
 			window.innerWidth / window.innerHeight,
@@ -52,15 +52,24 @@ const MiniGamePage = () => {
 		const renderer = new THREE.WebGLRenderer({ antialias: true });
 		renderer.setSize(window.innerWidth, window.innerHeight);
 		renderer.domElement.style.touchAction = "none";
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 		const container = mountRef.current;
 		container.innerHTML = "";
 		container.appendChild(renderer.domElement);
 
 		// 3. Lights
-		scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-		const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-		dirLight.position.set(0, 8, 5);
+		scene.add(new THREE.AmbientLight(0xfff5e6, 0.4));
+		const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
+		dirLight.position.set(5, 10, 5);
+		dirLight.castShadow = true;
+		dirLight.shadow.mapSize.width = 2048;
+		dirLight.shadow.mapSize.height = 2048;
 		scene.add(dirLight);
+
+		const pointLight = new THREE.PointLight(0xffd700, 0.5);
+		pointLight.position.set(-5, 8, 5);
+		scene.add(pointLight);
 
 		// 4. Physics World
 		const world = new CANNON.World();
@@ -73,21 +82,62 @@ const MiniGamePage = () => {
 		world.defaultContactMaterial = contactMat;
 
 		// 5. Floor
-		const floorMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+		const floorMat = new THREE.MeshStandardMaterial({
+			color: 0x8b6b4e,
+			roughness: 0.7,
+			metalness: 0.1,
+		});
 		const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), floorMat);
 		floorMesh.rotation.x = -Math.PI / 2;
+		floorMesh.receiveShadow = true;
 		scene.add(floorMesh);
+
+		// 카페트 추가
+		const carpetGeometry = new THREE.CircleGeometry(8, 64);
+		const carpetMaterial = new THREE.MeshStandardMaterial({
+			color: 0x9b7b5e, // 따뜻한 베이지 갈색
+			roughness: 0.8,
+			metalness: 0.0,
+		});
+
+		const carpet = new THREE.Mesh(carpetGeometry, carpetMaterial);
+		carpet.rotation.x = -Math.PI / 2;
+		carpet.position.y = 0.02;
+		carpet.position.z = 2;
+		carpet.receiveShadow = true;
+		carpet.castShadow = true;
+		scene.add(carpet);
+
+		// 러그 가장자리 장식 추가
+		const rugBorderGeometry = new THREE.RingGeometry(7.8, 8, 64);
+		const rugBorderMaterial = new THREE.MeshStandardMaterial({
+			color: 0x7d6b4f, // 어두운 갈색 테두리
+			roughness: 0.8,
+			metalness: 0.0,
+		});
+		const rugBorder = new THREE.Mesh(rugBorderGeometry, rugBorderMaterial);
+		rugBorder.rotation.x = -Math.PI / 2;
+		rugBorder.position.y = 0.03;
+		rugBorder.position.z = 2;
+		rugBorder.receiveShadow = true;
+		scene.add(rugBorder);
+
 		const floorBody = new CANNON.Body({
 			mass: 0,
-			shape: new CANNON.Box(new CANNON.Vec3(25, 0.1, 25)),
+			shape: new CANNON.Box(new CANNON.Vec3(20, 0.1, 20)),
 			position: new CANNON.Vec3(0, -0.1, 0),
 		});
 		world.addBody(floorBody);
 
 		// 6. Walls
-		const wallMat = new THREE.MeshStandardMaterial({ color: 0xd3cbc0 });
+		const wallMat = new THREE.MeshStandardMaterial({
+			color: 0xf5e6d3,
+			roughness: 0.5,
+			metalness: 0.1,
+		});
 		const backWall = new THREE.Mesh(new THREE.BoxGeometry(50, 50, 0.2), wallMat);
 		backWall.position.set(0, 10, -10);
+		backWall.receiveShadow = true;
 		scene.add(backWall);
 		const backBody = new CANNON.Body({ mass: 0, material: defaultMat });
 		backBody.addShape(new CANNON.Box(new CANNON.Vec3(25, 10, 0.1)));
@@ -119,21 +169,21 @@ const MiniGamePage = () => {
 				? new THREE.MeshStandardMaterial({
 						map: loader.load(bookData.backCoverImageUrl),
 				  })
-				: fallbackMat,
+				: new THREE.MeshStandardMaterial({ color: 0x8b4513 }), // 갈색 뒷표지
 			// +X (오른쪽 페이지)
 			bookData.frontCoverImageUrl
 				? new THREE.MeshStandardMaterial({
 						map: loader.load(bookData.frontCoverImageUrl),
 				  })
-				: fallbackMat, // -X (스파인)
-			new THREE.MeshStandardMaterial({ color: 0xffffff }), // +Y (상단)
-			new THREE.MeshStandardMaterial({ color: 0xffffff }), // -Y (하단)
+				: new THREE.MeshStandardMaterial({ color: 0x8b4513 }), // 갈색 앞표지
+			new THREE.MeshStandardMaterial({ color: 0xffffff }), // 흰색 상단
+			new THREE.MeshStandardMaterial({ color: 0xffffff }), // 흰색 하단
 			bookData.leftCoverImageUrl
 				? new THREE.MeshStandardMaterial({
 						map: loader.load(bookData.leftCoverImageUrl),
 				  })
-				: fallbackMat, // +Z (앞표지)
-			new THREE.MeshStandardMaterial({ color: 0xffffff }), // -Z (뒷표지)
+				: new THREE.MeshStandardMaterial({ color: 0x8b4513 }), // 갈색 스파인
+			new THREE.MeshStandardMaterial({ color: 0xffffff }), // 흰색 페이지
 		];
 		const bookGeo = new THREE.BoxGeometry(bookWidth, bookHeight, bookDepth);
 		const bookMesh = new THREE.Mesh(bookGeo, materials);
@@ -156,7 +206,9 @@ const MiniGamePage = () => {
 		const shelfDepth = 2;
 		const plankThickness = 0.2;
 		const shelfMat = new THREE.MeshStandardMaterial({
-			color: 0x8b4513,
+			color: 0x8b6b4e,
+			roughness: 0.6,
+			metalness: 0.2,
 		});
 		const shelfGroup = new THREE.Group();
 
@@ -185,11 +237,11 @@ const MiniGamePage = () => {
 			plank.position.set(0, y, 0);
 			shelfGroup.add(plank);
 		}
-		shelfGroup.position.set(0, 0, -5);
+		shelfGroup.position.set(0, 0, -8);
 		scene.add(shelfGroup);
 
 		const shelfBody = new CANNON.Body({ mass: 0, material: defaultMat });
-		shelfBody.position.set(0, 0, -5);
+		shelfBody.position.set(0, 0, -8);
 		// 뒤판
 		shelfBody.addShape(
 			new CANNON.Box(new CANNON.Vec3(shelfWidth / 2, shelfHeight / 2, plankThickness / 2)),
@@ -217,10 +269,15 @@ const MiniGamePage = () => {
 		// 9. Ceiling
 		const ceilingMesh = new THREE.Mesh(
 			new THREE.PlaneGeometry(50, 50),
-			new THREE.MeshStandardMaterial({ color: 0xe0e0e0 })
+			new THREE.MeshStandardMaterial({
+				color: 0xf5e6d3,
+				roughness: 0.5,
+				metalness: 0.1,
+			})
 		);
 		ceilingMesh.rotation.x = Math.PI / 2;
 		ceilingMesh.position.set(0, 20, 0);
+		ceilingMesh.receiveShadow = true;
 		scene.add(ceilingMesh);
 		const ceilingBody = new CANNON.Body({
 			mass: 0,
@@ -360,12 +417,12 @@ const MiniGamePage = () => {
 				const pos = bookBody.position;
 				const xMin = -shelfWidth / 2;
 				const xMax = shelfWidth / 2;
-				const y1 = 0.1 + 1 * ((shelfHeight - plankThickness) / 3);
-				const y2 = 0.1 + 2 * ((shelfHeight - plankThickness) / 3);
+				const y1 = 0;
+				const y2 = 0.1 + (shelfHeight - plankThickness);
 				const yMin = y1 + plankThickness / 2;
 				const yMax = y2 - plankThickness / 2;
-				const zMin = -5 - shelfDepth / 2;
-				const zMax = -5 + shelfDepth / 2;
+				const zMin = -8 - shelfDepth / 2;
+				const zMax = -8 + shelfDepth / 2;
 
 				if (
 					pos.x > xMin &&
