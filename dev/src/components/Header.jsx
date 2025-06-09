@@ -95,6 +95,9 @@ const Header = () => {
 						<Link to='/community' className='text-gray-700 hover:text-primary'>
 							커뮤니티
 						</Link>
+						<Link to='/reports' className='text-gray-700 hover:text-primary'>
+							독후감
+						</Link>
 						{isAuthenticated ? (
 							<>
 								<div className='relative group'>

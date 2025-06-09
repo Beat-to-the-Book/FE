@@ -59,7 +59,9 @@ const MiniGamePage = () => {
 		container.appendChild(renderer.domElement);
 
 		// 3. Lights
-		scene.add(new THREE.AmbientLight(0xfff5e6, 0.4));
+		scene.add(new THREE.AmbientLight(0xfff5e6, 0.4)); // 따뜻한 자연광
+
+		// 햇살 효과를 위한 방향성 조명
 		const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
 		dirLight.position.set(5, 10, 5);
 		dirLight.castShadow = true;
@@ -67,6 +69,28 @@ const MiniGamePage = () => {
 		dirLight.shadow.mapSize.height = 2048;
 		scene.add(dirLight);
 
+		// 책장 양쪽 스포트라이트 추가 (형광등 스타일)
+		const leftSpotLight = new THREE.SpotLight(0xfff777, 5, 30, Math.PI / 3, 50, 1);
+		leftSpotLight.position.set(-15, 0, -6);
+		leftSpotLight.target.position.set(0, 0.1, -7);
+		leftSpotLight.castShadow = true;
+		leftSpotLight.shadow.mapSize.width = 2048;
+		leftSpotLight.shadow.mapSize.height = 2048;
+		leftSpotLight.shadow.bias = -0.0001;
+		scene.add(leftSpotLight);
+		scene.add(leftSpotLight.target);
+
+		const rightSpotLight = new THREE.SpotLight(0xfff777, 5, 30, Math.PI / 3, 50, 1);
+		rightSpotLight.position.set(15, 0, -6);
+		rightSpotLight.target.position.set(0, 0.1, -7);
+		rightSpotLight.castShadow = true;
+		rightSpotLight.shadow.mapSize.width = 2048;
+		rightSpotLight.shadow.mapSize.height = 2048;
+		rightSpotLight.shadow.bias = -0.0001;
+		scene.add(rightSpotLight);
+		scene.add(rightSpotLight.target);
+
+		// 따뜻한 분위기를 위한 포인트 라이트
 		const pointLight = new THREE.PointLight(0xffd700, 0.5);
 		pointLight.position.set(-5, 8, 5);
 		scene.add(pointLight);
@@ -421,8 +445,8 @@ const MiniGamePage = () => {
 				const y2 = 0.1 + (shelfHeight - plankThickness);
 				const yMin = y1 + plankThickness / 2;
 				const yMax = y2 - plankThickness / 2;
-				const zMin = -8 - shelfDepth / 2;
-				const zMax = -8 + shelfDepth / 2;
+				const zMin = -7.8 - shelfDepth / 2;
+				const zMax = -7.8 + shelfDepth / 2;
 
 				if (
 					pos.x > xMin &&
