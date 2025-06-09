@@ -10,28 +10,30 @@ const ReportDetailPage = () => {
 	const [report, setReport] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [isAuthor, setIsAuthor] = useState(false);
 
 	useEffect(() => {
 		const fetchReport = async () => {
 			try {
 				setLoading(true);
-				// 로그인한 사용자의 경우 본인 독후감 API 사용
+				// 공개 독후감 조회
+				const publicResponse = await reportAPI.getPublicReport(reportId);
+				const publicReport = publicResponse.data;
+				setReport(publicReport);
+
+				// 로그인한 사용자의 경우 본인 독후감 목록 조회
 				if (isAuthenticated) {
 					try {
-						const response = await reportAPI.getMyReport(reportId);
-						setReport(response.data);
-						setError("");
-						return;
+						const myReportsResponse = await reportAPI.getMyReports();
+						const myReports = myReportsResponse.data;
+						// 본인 독후감 중 현재 보고 있는 독후감이 있는지 확인
+						const isMyReport = myReports.some((report) => report.id === parseInt(reportId));
+						setIsAuthor(isMyReport);
 					} catch (error) {
-						// 본인 독후감이 아닌 경우 공개 독후감 API 사용
-						if (error.response?.status !== 404) {
-							throw error;
-						}
+						console.error("본인 독후감 조회 에러:", error);
 					}
 				}
-				// 공개 독후감 API 사용
-				const response = await reportAPI.getPublicReport(reportId);
-				setReport(response.data);
+
 				setError("");
 			} catch (error) {
 				console.error("독후감 조회 에러:", error);
@@ -87,8 +89,6 @@ const ReportDetailPage = () => {
 	}
 
 	if (!report) return null;
-
-	const isAuthor = isAuthenticated && report.authorId === userId;
 
 	return (
 		<div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>

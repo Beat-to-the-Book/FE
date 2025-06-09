@@ -62,6 +62,7 @@ const BookDetailPage = () => {
 		publicVisible: true,
 	});
 	const [reports, setReports] = useState([]);
+	const [myReports, setMyReports] = useState([]);
 	const [reportsLoading, setReportsLoading] = useState(false);
 	const [reportsError, setReportsError] = useState("");
 
@@ -89,8 +90,20 @@ const BookDetailPage = () => {
 		const fetchReports = async () => {
 			try {
 				setReportsLoading(true);
+				// 공개 독후감 조회
 				const response = await reportAPI.getBookReports(bookId);
 				setReports(response.data);
+
+				// 로그인한 사용자의 경우 본인 독후감 목록 조회
+				if (isAuthenticated) {
+					try {
+						const myReportsResponse = await reportAPI.getMyReports();
+						setMyReports(myReportsResponse.data);
+					} catch (error) {
+						console.error("본인 독후감 조회 에러:", error);
+					}
+				}
+
 				setReportsError("");
 			} catch (error) {
 				console.error("독후감 조회 에러:", error);
@@ -109,7 +122,7 @@ const BookDetailPage = () => {
 		if (activeTab === "reports") {
 			fetchReports();
 		}
-	}, [bookId, activeTab]);
+	}, [bookId, activeTab, isAuthenticated]);
 
 	useEffect(() => {
 		// 행동 로깅 초기화
@@ -471,44 +484,49 @@ const BookDetailPage = () => {
 								<div className='text-red-500 text-center py-4'>{reportsError}</div>
 							) : (
 								<div className='space-y-4'>
-									{reports.map((report) => (
-										<div key={report.id} className='bg-white rounded-lg shadow p-6 mb-4'>
-											<div className='flex justify-between items-start mb-4'>
-												<div>
-													<div className='flex items-center space-x-2 mb-2'>
-														<span className='font-medium'>{report.authorName}</span>
-														<span className='text-gray-500 text-sm'>
-															{new Date(report.createdAt).toLocaleDateString()}
-														</span>
-														{!report.publicVisible && (
-															<span className='bg-gray-100 px-2 py-1 rounded text-sm'>비공개</span>
-														)}
+									{reports.map((report) => {
+										const isMyReport = myReports.some((myReport) => myReport.id === report.id);
+										return (
+											<div key={report.id} className='bg-white rounded-lg shadow p-6 mb-4'>
+												<div className='flex justify-between items-start mb-4'>
+													<div>
+														<div className='flex items-center space-x-2 mb-2'>
+															<span className='font-medium'>{report.authorName}</span>
+															<span className='text-gray-500 text-sm'>
+																{new Date(report.createdAt).toLocaleDateString()}
+															</span>
+															{!report.publicVisible && (
+																<span className='bg-gray-100 px-2 py-1 rounded text-sm'>
+																	비공개
+																</span>
+															)}
+														</div>
+														<div className='text-yellow-500'>
+															{"★".repeat(report.rating)}
+															{"☆".repeat(5 - report.rating)}
+														</div>
 													</div>
-													<div className='text-yellow-500'>
-														{"★".repeat(report.rating)}
-														{"☆".repeat(5 - report.rating)}
-													</div>
+													{isAuthenticated && isMyReport && (
+														<div className='flex space-x-2'>
+															<button
+																onClick={() => navigate(`/reports/${report.id}/edit`)}
+																className='text-primary hover:text-primary-dark'
+															>
+																수정
+															</button>
+															<button
+																onClick={() => handleDeleteReport(report.id)}
+																className='text-red-500 hover:text-red-600'
+															>
+																삭제
+															</button>
+														</div>
+													)}
 												</div>
-												{isAuthenticated && report.authorId === userId && (
-													<div className='flex space-x-2'>
-														<button
-															onClick={() => navigate(`/reports/${report.id}/edit`)}
-															className='text-primary hover:text-primary-dark'
-														>
-															수정
-														</button>
-														<button
-															onClick={() => handleDeleteReport(report.id)}
-															className='text-red-500 hover:text-red-600'
-														>
-															삭제
-														</button>
-													</div>
-												)}
+												<p className='text-gray-700 whitespace-pre-wrap'>{report.content}</p>
 											</div>
-											<p className='text-gray-700 whitespace-pre-wrap'>{report.content}</p>
-										</div>
-									))}
+										);
+									})}
 								</div>
 							)}
 						</div>
