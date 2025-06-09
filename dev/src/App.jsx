@@ -11,6 +11,7 @@ import CommunityPage from "./pages/CommunityPage";
 import GroupPage from "./pages/GroupPage";
 import PostPage from "./pages/PostPage";
 import WritePostPage from "./pages/WritePostPage";
+import MyPage from "./pages/MyPage";
 
 function App() {
 	return (
@@ -24,6 +25,7 @@ function App() {
 					<Route path='/cart' element={<CartPage />} />
 					<Route path='/search' element={<SearchPage />} />
 					<Route path='/minigame' element={<MiniGamePage />} />
+					<Route path='/mypage' element={<MyPage />} />
 					<Route path='/community' element={<CommunityPage />} />
 					<Route path='/community/:groupId' element={<GroupPage />} />
 					<Route path='/community/:groupId/posts/:postId' element={<PostPage />} />
