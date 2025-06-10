@@ -62,7 +62,7 @@ const ReportsPage = () => {
 				<h1 className='text-3xl font-bold text-gray-900'>독후감</h1>
 				{isAuthenticated && (
 					<button
-						onClick={() => navigate("/reports/write")}
+						onClick={() => navigate("/write-report")}
 						className='bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark'
 					>
 						독후감 작성

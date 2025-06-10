@@ -4,6 +4,7 @@ import { bookAPI } from "../lib/api/book";
 import { purchaseAPI } from "../lib/api/purchase";
 import { rentalAPI } from "../lib/api/rental";
 import { reportAPI } from "../lib/api/report";
+import { reviewAPI } from "../lib/api/review";
 import useAuthStore from "../lib/store/authStore";
 
 // 임시 데이터 (API 연동 전까지 사용)
@@ -61,13 +62,16 @@ const removeDuplicates = (books, dateField) => {
 
 const MyPage = () => {
 	const navigate = useNavigate();
-	const { isAuthenticated } = useAuthStore();
+	const { isAuthenticated, userId } = useAuthStore();
 	const [activeTab, setActiveTab] = useState("reports");
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [purchasedBooks, setPurchasedBooks] = useState([]);
 	const [rentedBooks, setRentedBooks] = useState([]);
 	const [myReports, setMyReports] = useState([]);
+	const [myReviews, setMyReviews] = useState([]);
+	const [reviewsLoading, setReviewsLoading] = useState(false);
+	const [reviewsError, setReviewsError] = useState("");
 
 	useEffect(() => {
 		if (!isAuthenticated) {
@@ -100,6 +104,62 @@ const MyPage = () => {
 
 		fetchData();
 	}, [isAuthenticated, navigate]);
+
+	useEffect(() => {
+		const fetchMyReviews = async () => {
+			try {
+				setReviewsLoading(true);
+				// 모든 구매한 책의 리뷰를 가져옴
+				const reviewPromises = purchasedBooks.map((book) => reviewAPI.getBookReviews(book.id));
+				const reviewResponses = await Promise.all(reviewPromises);
+
+				// 내가 작성한 리뷰만 필터링
+				const myReviews = reviewResponses
+					.flatMap((response) => response.data.reviews)
+					.filter((review) => review.author === userId);
+
+				setMyReviews(myReviews);
+				setReviewsError("");
+			} catch (error) {
+				console.error("리뷰 조회 에러:", error);
+				setReviewsError("리뷰를 불러오는데 실패했습니다.");
+			} finally {
+				setReviewsLoading(false);
+			}
+		};
+
+		if (activeTab === "reviews" && purchasedBooks.length > 0) {
+			fetchMyReviews();
+		}
+	}, [activeTab, purchasedBooks, userId]);
+
+	const handleDeleteReview = async (reviewId) => {
+		if (!window.confirm("정말로 이 리뷰를 삭제하시겠습니까?")) {
+			return;
+		}
+
+		try {
+			await reviewAPI.delete(reviewId);
+			alert("리뷰가 삭제되었습니다.");
+			// 리뷰 목록 새로고침
+			const reviewPromises = purchasedBooks.map((book) => reviewAPI.getBookReviews(book.id));
+			const reviewResponses = await Promise.all(reviewPromises);
+			const myReviews = reviewResponses
+				.flatMap((response) => response.data.reviews)
+				.filter((review) => review.author === userId);
+			setMyReviews(myReviews);
+		} catch (error) {
+			console.error("리뷰 삭제 에러:", error);
+			if (error.response?.status === 401) {
+				alert("로그인이 필요합니다.");
+				navigate("/login");
+			} else if (error.response?.status === 403) {
+				alert("삭제 권한이 없습니다.");
+			} else {
+				alert("리뷰 삭제에 실패했습니다.");
+			}
+		}
+	};
 
 	if (loading) {
 		return (
@@ -201,28 +261,54 @@ const MyPage = () => {
 			{/* 리뷰 탭 */}
 			{activeTab === "reviews" && (
 				<div className='space-y-6'>
-					{TEMP_REVIEWS.map((review) => (
-						<div
-							key={review.id}
-							className='bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer'
-							onClick={() => navigate(`/book/${review.bookId}`)}
-						>
-							<div className='flex justify-between items-start mb-4'>
-								<div>
-									<h3 className='text-xl font-semibold text-gray-900 mb-2'>{review.bookTitle}</h3>
-									<div className='flex items-center space-x-2'>
-										<div className='text-yellow-500'>
-											{"★".repeat(review.rating)}
-											{"☆".repeat(5 - review.rating)}
+					{reviewsLoading ? (
+						<div className='flex justify-center py-4'>
+							<div className='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary'></div>
+						</div>
+					) : reviewsError ? (
+						<div className='text-red-500 text-center py-4'>{reviewsError}</div>
+					) : (
+						<div className='space-y-6'>
+							{myReviews.map((review) => (
+								<div
+									key={review.reviewId}
+									className='bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer'
+									onClick={() => navigate(`/book/${review.bookId}`)}
+								>
+									<div className='flex justify-between items-start mb-4'>
+										<div>
+											<h3 className='text-xl font-semibold text-gray-900 mb-2'>
+												{review.bookTitle}
+											</h3>
+											<div className='flex items-center space-x-2'>
+												<div className='text-yellow-500'>
+													{"★".repeat(review.rating)}
+													{"☆".repeat(5 - review.rating)}
+												</div>
+												<span className='text-sm text-gray-500'>{review.rating}점</span>
+											</div>
 										</div>
-										<span className='text-sm text-gray-500'>{review.rating}점</span>
+										<span className='text-sm text-gray-500'>{review.createdAt}</span>
+									</div>
+									<p className='text-gray-700 line-clamp-2'>{review.comment}</p>
+									<div className='mt-4 flex justify-end'>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												handleDeleteReview(review.reviewId);
+											}}
+											className='text-red-500 hover:text-red-600'
+										>
+											삭제
+										</button>
 									</div>
 								</div>
-								<span className='text-sm text-gray-500'>{review.createdAt}</span>
-							</div>
-							<p className='text-gray-700 line-clamp-2'>{review.content}</p>
+							))}
+							{myReviews.length === 0 && (
+								<div className='text-center text-gray-500 py-4'>작성한 리뷰가 없습니다.</div>
+							)}
 						</div>
-					))}
+					)}
 				</div>
 			)}
 
