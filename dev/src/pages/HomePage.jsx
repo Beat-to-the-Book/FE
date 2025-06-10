@@ -4,11 +4,60 @@ import { useNavigate } from "react-router-dom";
 import useBehaviorStore from "../lib/store/behaviorStore";
 import RecommendedBooks from "../components/RecommendedBooks";
 
+const ITEMS_PER_PAGE = 20; // 한 페이지당 보여줄 책의 개수
+
 const HomePage = () => {
 	const [books, setBooks] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [currentPage, setCurrentPage] = useState(1);
 	const navigate = useNavigate();
+
+	// 현재 페이지의 책들만 필터링
+	const getCurrentPageBooks = () => {
+		const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+		const endIndex = startIndex + ITEMS_PER_PAGE;
+		return books.slice(startIndex, endIndex);
+	};
+
+	// 전체 페이지 수 계산
+	const totalPages = Math.ceil(books.length / ITEMS_PER_PAGE);
+
+	// 페이지 그룹 계산
+	const getPageGroups = () => {
+		const groups = [];
+		const groupSize = 5;
+		for (let i = 0; i < totalPages; i += groupSize) {
+			groups.push(
+				Array.from({ length: Math.min(groupSize, totalPages - i) }, (_, index) => i + index + 1)
+			);
+		}
+		return groups;
+	};
+
+	// 현재 페이지가 속한 그룹 찾기
+	const getCurrentGroup = () => {
+		return Math.floor((currentPage - 1) / 5);
+	};
+
+	// 페이지 변경 핸들러
+	const handlePageChange = (pageNumber) => {
+		setCurrentPage(pageNumber);
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	};
+
+	// 그룹 이동 핸들러
+	const handleGroupChange = (direction) => {
+		const currentGroup = getCurrentGroup();
+		const pageGroups = getPageGroups();
+
+		if (direction === "next" && currentGroup < pageGroups.length - 1) {
+			setCurrentPage(pageGroups[currentGroup + 1][0]);
+		} else if (direction === "prev" && currentGroup > 0) {
+			setCurrentPage(pageGroups[currentGroup - 1][0]);
+		}
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	};
 
 	useEffect(() => {
 		const fetchBooks = async () => {
@@ -95,7 +144,7 @@ const HomePage = () => {
 						<div className='text-sm text-gray-500'>{books.length}개의 책</div>
 					</div>
 					<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6'>
-						{books.map((book) => (
+						{getCurrentPageBooks().map((book) => (
 							<div
 								key={book.id}
 								onClick={() => handleBookClick(book.id)}
@@ -116,6 +165,51 @@ const HomePage = () => {
 								</div>
 							</div>
 						))}
+					</div>
+
+					{/* 페이지네이션 UI */}
+					<div className='flex justify-center items-center space-x-2 mt-8'>
+						<button
+							onClick={() => handleGroupChange("prev")}
+							disabled={getCurrentGroup() === 0}
+							className='px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200'
+						>
+							{"<<"}
+						</button>
+						<button
+							onClick={() => handlePageChange(currentPage - 1)}
+							disabled={currentPage === 1}
+							className='px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200'
+						>
+							이전
+						</button>
+						{getPageGroups()[getCurrentGroup()].map((pageNum) => (
+							<button
+								key={pageNum}
+								onClick={() => handlePageChange(pageNum)}
+								className={`px-3 py-1 rounded-md ${
+									currentPage === pageNum
+										? "bg-primary text-white"
+										: "bg-gray-100 text-gray-700 hover:bg-gray-200"
+								}`}
+							>
+								{pageNum}
+							</button>
+						))}
+						<button
+							onClick={() => handlePageChange(currentPage + 1)}
+							disabled={currentPage === totalPages}
+							className='px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200'
+						>
+							다음
+						</button>
+						<button
+							onClick={() => handleGroupChange("next")}
+							disabled={getCurrentGroup() === getPageGroups().length - 1}
+							className='px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200'
+						>
+							{">>"}
+						</button>
 					</div>
 				</div>
 				<div className='hidden xl:block fixed right-8 top-20 w-42'>
