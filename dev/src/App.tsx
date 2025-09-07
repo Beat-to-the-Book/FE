@@ -15,6 +15,7 @@ import MyPage from "./pages/MyPage";
 import ReportsPage from "./pages/ReportsPage";
 import WriteReportPage from "./pages/WriteReportPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
+import BookshelfPage from "./pages/BookshelfPage.jsx";
 
 function App() {
 	return (
@@ -37,6 +38,7 @@ function App() {
 					<Route path='/reports/:reportId' element={<ReportDetailPage />} />
 					<Route path='/write-report' element={<WriteReportPage />} />
 					<Route path='/write-report/:bookId' element={<WriteReportPage />} />
+					<Route path='/bookshelf' element={<BookshelfPage />} />
 				</Routes>
 			</Layout>
 		</Router>
