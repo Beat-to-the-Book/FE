@@ -4,15 +4,15 @@ import { OrbitControls, Stage } from "@react-three/drei";
 import { DoubleSide } from "three";
 
 const FLOOR_MIN = 1;
-const FLOOR_MAX = 3; // 선반 3단
+const FLOOR_MAX = 7; // 선반 7단
 const SHELF_WIDTH = 6; // Shelf width
 const SHELF_HALF = SHELF_WIDTH / 2;
-const SHELF_MARGIN_X = 0.4; // 기둥 여유
+const SHELF_MARGIN_X = 0.2; // 기둥 여유 (줄여서 더 넓게)
 const X_MIN = -SHELF_HALF + SHELF_MARGIN_X; // 좌측 경계
 const X_MAX = SHELF_HALF - SHELF_MARGIN_X; // 우측 경계
 // 장식/책 Z 영역 분리
 const DECOR_Z_MIN = -0.35;
-const DECOR_Z_MAX = -0.05;
+const DECOR_Z_MAX = 0.35;
 const BOOK_BASE_Z = 0.1;
 const BOOK_ACTIVE_Z = 0.28;
 
@@ -21,7 +21,8 @@ function clamp(value, min, max) {
 }
 
 function getShelfY(floor) {
-	return floor === 1 ? 0.35 : floor === 2 ? 1.35 : 2.35;
+	// 7층 선반: 1층(0.35), 2층(1.35), 3층(2.35), 4층(3.35), 5층(4.35), 6층(5.35), 7층(6.35)
+	return 0.35 + (floor - 1) * 1.0;
 }
 
 function Shelf({ width = 6, depth = 1.0, y = 0 }) {
@@ -36,24 +37,28 @@ function Shelf({ width = 6, depth = 1.0, y = 0 }) {
 function Bookcase() {
 	return (
 		<group>
-			{/* 뒤판 */}
-			<mesh position={[0, 1.2, -0.55]} receiveShadow>
-				<boxGeometry args={[6.2, 2.6, 0.1]} />
+			{/* 뒤판 (7층 높이에 맞게 확장) */}
+			<mesh position={[0, 3.2, -0.55]} receiveShadow>
+				<boxGeometry args={[6.2, 6.6, 0.1]} />
 				<meshStandardMaterial color='#e7d7bd' side={DoubleSide} />
 			</mesh>
-			{/* 좌우 기둥 */}
-			<mesh position={[-3.1, 1.2, 0]} castShadow>
-				<boxGeometry args={[0.2, 2.6, 1.2]} />
+			{/* 좌우 기둥 (7층 높이에 맞게 확장) */}
+			<mesh position={[-3.1, 3.2, 0]} castShadow>
+				<boxGeometry args={[0.2, 6.6, 1.2]} />
 				<meshStandardMaterial color='#b78d5b' />
 			</mesh>
-			<mesh position={[3.1, 1.2, 0]} castShadow>
-				<boxGeometry args={[0.2, 2.6, 1.2]} />
+			<mesh position={[3.1, 3.2, 0]} castShadow>
+				<boxGeometry args={[0.2, 6.6, 1.2]} />
 				<meshStandardMaterial color='#b78d5b' />
 			</mesh>
-			{/* 선반 3단 (깊이 증가) */}
+			{/* 선반 7단 */}
 			<Shelf y={0.2} depth={1.0} />
 			<Shelf y={1.2} depth={1.0} />
 			<Shelf y={2.2} depth={1.0} />
+			<Shelf y={3.2} depth={1.0} />
+			<Shelf y={4.2} depth={1.0} />
+			<Shelf y={5.2} depth={1.0} />
+			<Shelf y={6.2} depth={1.0} />
 		</group>
 	);
 }
@@ -68,27 +73,49 @@ function Decoration({
 	onSelect,
 	isSelected,
 }) {
-	const dragging = useRef(false);
+	const isPointerDown = useRef(false);
+	const hasMoved = useRef(false);
 
 	return (
 		<mesh
 			position={position}
 			rotation={[0, rotationY, 0]}
 			castShadow
+			onPointerEnter={(e) => {
+				e.stopPropagation();
+			}}
+			onPointerLeave={(e) => {
+				e.stopPropagation();
+			}}
 			onPointerDown={(e) => {
-				dragging.current = true;
+				// 마우스/터치를 누른 경우에만 드래그를 시작 가능 상태로 전환
+				isPointerDown.current = true;
+				hasMoved.current = false;
 				e.stopPropagation();
 			}}
 			onPointerUp={(e) => {
-				dragging.current = false;
-				onDragEnd?.(e.object.position.toArray());
+				if (isPointerDown.current && hasMoved.current) {
+					// 드래그 종료
+					onDragEnd?.(e.object.position.toArray());
+				} else {
+					// 클릭 처리
+					e.stopPropagation();
+					onSelect?.(id);
+				}
+				isPointerDown.current = false;
+				hasMoved.current = false;
 			}}
 			onClick={(e) => {
-				e.stopPropagation();
-				onSelect?.(id);
+				// 클릭 이벤트도 추가로 처리 (드래그가 아닌 경우)
+				if (!hasMoved.current) {
+					e.stopPropagation();
+					onSelect?.(id);
+				}
 			}}
 			onPointerMove={(e) => {
-				if (!dragging.current) return;
+				// 마우스 버튼이 눌려있지 않으면 무시 (호버만으로는 드래그 시작 금지)
+				if (!isPointerDown.current) return;
+				hasMoved.current = true;
 				// x, z 이동 + 클램프, y는 선반 높이로 스냅 (장식은 뒤쪽 Z 대역 고정)
 				e.object.position.x = clamp(e.object.position.x + e.delta[0] * 0.01, X_MIN, X_MAX);
 				e.object.position.z = clamp(
@@ -105,15 +132,15 @@ function Decoration({
 			<meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />
 			{isSelected && (
 				<group position={[0, 0.35, 0]}>
-					{/* 2D 화살표 (아래로 향함) */}
+					{/* 화살표 모양 (아래로 향함) */}
 					<mesh rotation={[0, 0, Math.PI]}>
-						<planeGeometry args={[0.15, 0.2]} />
-						<meshStandardMaterial color='#ff6b6b' transparent opacity={0.8} side={DoubleSide} />
+						<coneGeometry args={[0.08, 0.15, 3]} />
+						<meshStandardMaterial color='#ff6b6b' transparent opacity={0.9} side={DoubleSide} />
 					</mesh>
-					{/* 화살표 윤곽선 */}
-					<mesh rotation={[0, 0, Math.PI]}>
-						<planeGeometry args={[0.16, 0.21]} />
-						<meshStandardMaterial color='#ffffff' transparent opacity={0.9} side={DoubleSide} />
+					{/* 화살표 줄기 */}
+					<mesh position={[0, 0.05, 0]}>
+						<cylinderGeometry args={[0.01, 0.01, 0.1, 8]} />
+						<meshStandardMaterial color='#ff6b6b' transparent opacity={0.9} />
 					</mesh>
 				</group>
 			)}
@@ -129,7 +156,7 @@ export default function BookshelfPage() {
 			const raw = localStorage.getItem("bookshelf-decor-v1");
 			if (raw) return JSON.parse(raw);
 		} catch {}
-		return { 1: [], 2: [], 3: [] };
+		return { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] };
 	});
 	const [activeId, setActiveId] = useState(null);
 	const [showHelp, setShowHelp] = useState(false);
@@ -181,6 +208,63 @@ export default function BookshelfPage() {
 
 	const shelfY = useMemo(() => getShelfY(floor), [floor]);
 	const floorLabel = useMemo(() => `${floor}층 선반`, [floor]);
+
+	// 카메라 부드러운 전환을 위한 애니메이션
+	const [cameraTarget, setCameraTarget] = useState([-13, shelfY - 3.2, 0]);
+	const [cameraPosition, setCameraPosition] = useState([0, shelfY - 3.2, 0]);
+
+	useEffect(() => {
+		// 층 변경 시 카메라 위치를 부드럽게 전환
+		const targetY = getShelfY(floor) - 3.2;
+		const newTarget = [0, targetY, 0];
+		const newPosition = [4, targetY + 1, 6];
+
+		// 애니메이션으로 부드럽게 전환
+		const duration = 500; // 0.5초
+		const startTime = Date.now();
+		const startTarget = [...cameraTarget];
+		const startPosition = [...cameraPosition];
+
+		const animate = () => {
+			const elapsed = Date.now() - startTime;
+			const progress = Math.min(elapsed / duration, 1);
+
+			// easeOutCubic 함수로 부드러운 애니메이션
+			const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+			const currentTarget = [
+				startTarget[0] + (newTarget[0] - startTarget[0]) * easeProgress,
+				startTarget[1] + (newTarget[1] - startTarget[1]) * easeProgress,
+				startTarget[2] + (newTarget[2] - startTarget[2]) * easeProgress,
+			];
+
+			const currentPosition = [
+				startPosition[0] + (newPosition[0] - startPosition[0]) * easeProgress,
+				startPosition[1] + (newPosition[1] - startPosition[1]) * easeProgress,
+				startPosition[2] + (newPosition[2] - startPosition[2]) * easeProgress,
+			];
+
+			setCameraTarget(currentTarget);
+			setCameraPosition(currentPosition);
+
+			if (progress < 1) {
+				requestAnimationFrame(animate);
+			}
+		};
+
+		animate();
+	}, [floor]);
+
+	// 층 변경 시 현재 층에 없는 장식품 선택 해제
+	useEffect(() => {
+		if (activeId) {
+			const currentFloorDecorations = decorsByFloor[floor] || [];
+			const isDecorationInCurrentFloor = currentFloorDecorations.some((d) => d.id === activeId);
+			if (!isDecorationInCurrentFloor) {
+				setActiveId(null);
+			}
+		}
+	}, [floor, activeId, decorsByFloor]);
 
 	// 키보드 이동(방향키), Shift+위/아래 수직 이동 (장식 전용)
 	const KEY_STEP = 0.1;
@@ -265,82 +349,96 @@ export default function BookshelfPage() {
 						<li>드래그: X/Z 이동 (장식은 뒤쪽 영역만)</li>
 						<li>방향키: X/Z 이동</li>
 						<li>Shift + 방향키(위/아래): Y(위/아래) 이동</li>
-						<li>층 전환: 카메라와 배치 선반이 함께 바뀝니다</li>
+						<li>층 전환: 카메라가 해당 층 선반을 향하고, 모든 층 장식이 보임</li>
+						<li>현재 층의 장식만 클릭/드래그/조작 가능</li>
+						<li>장식품은 현재 층의 선반 범위 내에서만 이동 가능</li>
 					</ul>
 				</div>
 			)}
 
 			{/* 3D 뷰 */}
-			<Canvas
-				shadows
-				camera={{ position: [3.6, shelfY + 0.8, 5.2], fov: 45 }}
-				onPointerMissed={() => setActiveId(null)}
-			>
-				<ambientLight intensity={0.6} />
-				<directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
+			<Canvas shadows camera={{ position: cameraPosition, fov: 50 }}>
+				<ambientLight intensity={0.8} />
+				<directionalLight position={[5, 8, 5]} intensity={1.5} castShadow />
+				<directionalLight position={[-5, 6, 3]} intensity={0.8} castShadow />
 				<Stage intensity={0.5} environment={null} adjustCamera={false}>
-					<Bookcase />
-					{/* 모든 선반의 장식 렌더 (뒤쪽 Z 대역) */}
-					{[1, 2, 3].flatMap((fl) =>
-						(decorsByFloor[fl] || []).map((d) => (
-							<Decoration
-								key={`${fl}-${d.id}`}
-								id={d.id}
-								color={d.color}
-								position={d.position}
-								rotationY={d.rotationY || 0}
-								fixedY={d.position?.[1]}
-								onSelect={(id) => setActiveId(id)}
-								isSelected={activeId === d.id}
-								onDragEnd={(pos) => {
-									const snapped = [
-										clamp(pos[0], X_MIN, X_MAX),
-										d.position?.[1] ?? getShelfY(fl),
-										clamp(pos[2], DECOR_Z_MIN, DECOR_Z_MAX),
-									];
-									setDecorsByFloor((prev) => ({
-										...prev,
-										[fl]: prev[fl].map((x) => (x.id === d.id ? { ...x, position: snapped } : x)),
-									}));
-								}}
-							/>
-						))
-					)}
+					<group onClick={() => setActiveId(null)}>
+						<Bookcase />
+						{/* 모든 층의 장식 렌더 (뒤쪽 Z 대역) */}
+						{[1, 2, 3, 4, 5, 6, 7].flatMap((fl) =>
+							(decorsByFloor[fl] || []).map((d) => (
+								<Decoration
+									key={`${fl}-${d.id}`}
+									id={d.id}
+									color={d.color}
+									position={d.position}
+									rotationY={d.rotationY || 0}
+									fixedY={d.position?.[1]}
+									onSelect={(id) => {
+										// 현재 층의 장식만 선택 가능
+										if (fl === floor) {
+											setActiveId(id);
+										}
+									}}
+									isSelected={activeId === d.id && fl === floor}
+									onDragEnd={(pos) => {
+										// 현재 층의 장식만 드래그 가능
+										if (fl !== floor) return;
+										const snapped = [
+											clamp(pos[0], X_MIN, X_MAX),
+											d.position?.[1] ?? getShelfY(fl),
+											clamp(pos[2], DECOR_Z_MIN, DECOR_Z_MAX),
+										];
+										setDecorsByFloor((prev) => ({
+											...prev,
+											[fl]: prev[fl].map((x) => (x.id === d.id ? { ...x, position: snapped } : x)),
+										}));
+									}}
+								/>
+							))
+						)}
 
-					{/* 책 렌더 (MiniGamePage 비율 적용, 표지가 보이도록 Y 90도 회전) */}
-					{booksLaidOut.map((bk) => (
-						<mesh
-							key={bk.id}
-							position={[
-								bk.position[0],
-								bk.position[1],
-								activeBookId === bk.id ? BOOK_ACTIVE_Z : BOOK_BASE_Z,
-							]}
-							rotation={[0, Math.PI / 2, 0]}
-							scale={activeBookId === bk.id ? 1.15 : 1}
-							castShadow
-							onClick={(e) => {
-								e.stopPropagation();
-								setActiveBookId((cur) => (cur === bk.id ? null : bk.id));
-							}}
-						>
-							<boxGeometry args={[BOOK_WIDTH, BOOK_HEIGHT, BOOK_DEPTH]} />
-							<meshStandardMaterial color={bk.color} />
-						</mesh>
-					))}
+						{/* 책 렌더 (MiniGamePage 비율 적용, 표지가 보이도록 Y 90도 회전) */}
+						{booksLaidOut.map((bk) => (
+							<mesh
+								key={bk.id}
+								position={[
+									bk.position[0],
+									bk.position[1],
+									activeBookId === bk.id ? BOOK_ACTIVE_Z : BOOK_BASE_Z,
+								]}
+								rotation={[0, Math.PI / 2, 0]}
+								scale={activeBookId === bk.id ? 1.15 : 1}
+								castShadow
+								onPointerEnter={(e) => {
+									e.stopPropagation();
+								}}
+								onPointerLeave={(e) => {
+									e.stopPropagation();
+								}}
+								onClick={(e) => {
+									e.stopPropagation();
+									setActiveBookId((cur) => (cur === bk.id ? null : bk.id));
+								}}
+							>
+								<boxGeometry args={[BOOK_WIDTH, BOOK_HEIGHT, BOOK_DEPTH]} />
+								<meshStandardMaterial color={bk.color} />
+							</mesh>
+						))}
+					</group>
 				</Stage>
 				<OrbitControls
 					enablePan={false}
-					minDistance={5.2}
-					maxDistance={7}
-					minPolarAngle={0.95}
-					maxPolarAngle={1.3}
-					minAzimuthAngle={-0.6}
-					maxAzimuthAngle={0.6}
+					minDistance={5.5}
+					maxDistance={8}
+					minPolarAngle={0.8}
+					maxPolarAngle={1.4}
+					minAzimuthAngle={-0.8}
+					maxAzimuthAngle={0.8}
 					enableDamping
-					dampingFactor={0.08}
-					target={[0, shelfY, 0]}
-					// 가시성 문제 해결: 카메라가 너무 가까이 가지 않도록 제한
+					dampingFactor={0.1}
+					target={cameraTarget}
+					// 각 층별로 카메라가 해당 선반을 향하도록 설정
 				/>
 			</Canvas>
 
@@ -396,82 +494,11 @@ export default function BookshelfPage() {
 				</button>
 			</div>
 
-			{/* 선택한 장식 컨트롤 */}
+			{/* 선택한 장식 삭제 버튼 */}
 			{activeId && (
-				<div className='absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white rounded-full px-3 py-2 shadow'>
+				<div className='absolute bottom-20 left-1/2 -translate-x-1/2 z-10'>
 					<button
-						className='px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200'
-						onClick={() => {
-							setDecorsByFloor((prev) => ({
-								...prev,
-								[floor]: prev[floor].map((x) =>
-									x.id === activeId ? { ...x, rotationY: (x.rotationY || 0) - Math.PI / 8 } : x
-								),
-							}));
-						}}
-					>
-						왼쪽 회전
-					</button>
-					<button
-						className='px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200'
-						onClick={() => {
-							setDecorsByFloor((prev) => ({
-								...prev,
-								[floor]: prev[floor].map((x) =>
-									x.id === activeId ? { ...x, rotationY: (x.rotationY || 0) + Math.PI / 8 } : x
-								),
-							}));
-						}}
-					>
-						오른쪽 회전
-					</button>
-					<button
-						className='px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200'
-						onClick={() => {
-							setDecorsByFloor((prev) => ({
-								...prev,
-								[floor]: prev[floor].map((x) =>
-									x.id === activeId
-										? { ...x, position: [X_MIN, getShelfY(floor), (DECOR_Z_MIN + DECOR_Z_MAX) / 2] }
-										: x
-								),
-							}));
-						}}
-					>
-						좌정렬
-					</button>
-					<button
-						className='px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200'
-						onClick={() => {
-							setDecorsByFloor((prev) => ({
-								...prev,
-								[floor]: prev[floor].map((x) =>
-									x.id === activeId
-										? { ...x, position: [0, getShelfY(floor), (DECOR_Z_MIN + DECOR_Z_MAX) / 2] }
-										: x
-								),
-							}));
-						}}
-					>
-						가운데
-					</button>
-					<button
-						className='px-3 py-1 rounded-full text-sm bg-gray-100 hover:bg-gray-200'
-						onClick={() => {
-							setDecorsByFloor((prev) => ({
-								...prev,
-								[floor]: prev[floor].map((x) =>
-									x.id === activeId
-										? { ...x, position: [X_MAX, getShelfY(floor), (DECOR_Z_MIN + DECOR_Z_MAX) / 2] }
-										: x
-								),
-							}));
-						}}
-					>
-						우정렬
-					</button>
-					<button
-						className='px-3 py-1 rounded-full text-sm bg-red-200 hover:bg-red-300'
+						className='px-4 py-2 rounded-full text-sm bg-red-500 hover:bg-red-600 text-white shadow-lg'
 						onClick={() => {
 							setDecorsByFloor((prev) => ({
 								...prev,
