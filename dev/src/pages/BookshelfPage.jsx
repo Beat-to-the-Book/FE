@@ -65,9 +65,12 @@ function Bookcase() {
 
 function Decoration({
 	id,
+	type = 1,
 	color = "#ff7eb3",
 	position = [0, 1.25, -0.2],
+	rotationX = 0,
 	rotationY = 0,
+	rotationZ = 0,
 	fixedY,
 	onDragEnd,
 	onSelect,
@@ -76,10 +79,73 @@ function Decoration({
 	const isPointerDown = useRef(false);
 	const hasMoved = useRef(false);
 
+	// 장식 타입별 모양 렌더링
+	const renderDecoration = () => {
+		switch (type) {
+			case 1:
+				// 1번: 기존 구체
+				return (
+					<>
+						<icosahedronGeometry args={[0.15, 0]} />
+						<meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />
+					</>
+				);
+			case 2:
+				// 2번: 피규어 (간단한 캐릭터 모양)
+				return (
+					<group>
+						{/* 몸통 */}
+						<mesh position={[0, 0.1, 0]}>
+							<cylinderGeometry args={[0.08, 0.1, 0.2, 8]} />
+							<meshStandardMaterial color={color} roughness={0.7} metalness={0.1} />
+						</mesh>
+						{/* 머리 */}
+						<mesh position={[0, 0.25, 0]}>
+							<sphereGeometry args={[0.08, 8, 6]} />
+							<meshStandardMaterial color={color} roughness={0.7} metalness={0.1} />
+						</mesh>
+						{/* 팔 */}
+						<mesh position={[-0.12, 0.2, 0]} rotation={[0, 0, Math.PI / 4]}>
+							<cylinderGeometry args={[0.03, 0.03, 0.15, 6]} />
+							<meshStandardMaterial color={color} roughness={0.7} metalness={0.1} />
+						</mesh>
+						<mesh position={[0.12, 0.2, 0]} rotation={[0, 0, -Math.PI / 4]}>
+							<cylinderGeometry args={[0.03, 0.03, 0.15, 6]} />
+							<meshStandardMaterial color={color} roughness={0.7} metalness={0.1} />
+						</mesh>
+						{/* 다리 */}
+						<mesh position={[-0.05, -0.05, 0]}>
+							<cylinderGeometry args={[0.03, 0.03, 0.15, 6]} />
+							<meshStandardMaterial color={color} roughness={0.7} metalness={0.1} />
+						</mesh>
+						<mesh position={[0.05, -0.05, 0]}>
+							<cylinderGeometry args={[0.03, 0.03, 0.15, 6]} />
+							<meshStandardMaterial color={color} roughness={0.7} metalness={0.1} />
+						</mesh>
+					</group>
+				);
+			case 3:
+				// 3번: 별 모양
+				return (
+					<>
+						<octahedronGeometry args={[0.15, 0]} />
+						<meshStandardMaterial color={color} roughness={0.5} metalness={0.2} />
+					</>
+				);
+			default:
+				return (
+					<>
+						<icosahedronGeometry args={[0.15, 0]} />
+						<meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />
+					</>
+				);
+		}
+	};
+
 	return (
 		<mesh
 			position={position}
-			rotation={[0, rotationY, 0]}
+			rotation={[rotationX, rotationY, rotationZ]}
 			castShadow
 			onPointerEnter={(e) => {
 				e.stopPropagation();
@@ -128,8 +194,7 @@ function Decoration({
 				}
 			}}
 		>
-			<icosahedronGeometry args={[0.15, 0]} />
-			<meshStandardMaterial color={color} roughness={0.6} metalness={0.1} />
+			{renderDecoration()}
 			{isSelected && (
 				<group position={[0, 0.35, 0]}>
 					{/* 화살표 모양 (아래로 향함) */}
@@ -370,9 +435,12 @@ export default function BookshelfPage() {
 								<Decoration
 									key={`${fl}-${d.id}`}
 									id={d.id}
+									type={d.type || 1}
 									color={d.color}
 									position={d.position}
+									rotationX={d.rotationX || 0}
 									rotationY={d.rotationY || 0}
+									rotationZ={d.rotationZ || 0}
 									fixedY={d.position?.[1]}
 									onSelect={(id) => {
 										// 현재 층의 장식만 선택 가능
@@ -458,7 +526,7 @@ export default function BookshelfPage() {
 					}`}
 					onClick={() => setSelectedDeco(2)}
 				>
-					2번 장식
+					피규어
 				</button>
 				<button
 					className={`px-3 py-1 rounded-full text-sm ${
@@ -466,7 +534,7 @@ export default function BookshelfPage() {
 					}`}
 					onClick={() => setSelectedDeco(3)}
 				>
-					3번 장식
+					별
 				</button>
 				<button
 					className='px-3 py-1 rounded-full text-sm bg-amber-200 hover:bg-amber-300'
@@ -494,11 +562,111 @@ export default function BookshelfPage() {
 				</button>
 			</div>
 
-			{/* 선택한 장식 삭제 버튼 */}
+			{/* 선택한 장식 컨트롤 */}
 			{activeId && (
-				<div className='absolute bottom-20 left-1/2 -translate-x-1/2 z-10'>
+				<div className='absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white rounded-full px-3 py-2 shadow-lg'>
+					{/* X축 회전 */}
+					<div className='flex flex-col items-center gap-1'>
+						<div className='text-xs text-gray-600'>X축</div>
+						<div className='flex gap-1'>
+							<button
+								className='px-2 py-1 rounded text-xs bg-blue-100 hover:bg-blue-200'
+								onClick={() => {
+									setDecorsByFloor((prev) => ({
+										...prev,
+										[floor]: prev[floor].map((x) =>
+											x.id === activeId ? { ...x, rotationX: (x.rotationX || 0) - Math.PI / 8 } : x
+										),
+									}));
+								}}
+							>
+								↶
+							</button>
+							<button
+								className='px-2 py-1 rounded text-xs bg-blue-100 hover:bg-blue-200'
+								onClick={() => {
+									setDecorsByFloor((prev) => ({
+										...prev,
+										[floor]: prev[floor].map((x) =>
+											x.id === activeId ? { ...x, rotationX: (x.rotationX || 0) + Math.PI / 8 } : x
+										),
+									}));
+								}}
+							>
+								↷
+							</button>
+						</div>
+					</div>
+
+					{/* Y축 회전 */}
+					<div className='flex flex-col items-center gap-1'>
+						<div className='text-xs text-gray-600'>Y축</div>
+						<div className='flex gap-1'>
+							<button
+								className='px-2 py-1 rounded text-xs bg-green-100 hover:bg-green-200'
+								onClick={() => {
+									setDecorsByFloor((prev) => ({
+										...prev,
+										[floor]: prev[floor].map((x) =>
+											x.id === activeId ? { ...x, rotationY: (x.rotationY || 0) - Math.PI / 8 } : x
+										),
+									}));
+								}}
+							>
+								↶
+							</button>
+							<button
+								className='px-2 py-1 rounded text-xs bg-green-100 hover:bg-green-200'
+								onClick={() => {
+									setDecorsByFloor((prev) => ({
+										...prev,
+										[floor]: prev[floor].map((x) =>
+											x.id === activeId ? { ...x, rotationY: (x.rotationY || 0) + Math.PI / 8 } : x
+										),
+									}));
+								}}
+							>
+								↷
+							</button>
+						</div>
+					</div>
+
+					{/* Z축 회전 */}
+					<div className='flex flex-col items-center gap-1'>
+						<div className='text-xs text-gray-600'>Z축</div>
+						<div className='flex gap-1'>
+							<button
+								className='px-2 py-1 rounded text-xs bg-purple-100 hover:bg-purple-200'
+								onClick={() => {
+									setDecorsByFloor((prev) => ({
+										...prev,
+										[floor]: prev[floor].map((x) =>
+											x.id === activeId ? { ...x, rotationZ: (x.rotationZ || 0) - Math.PI / 8 } : x
+										),
+									}));
+								}}
+							>
+								↶
+							</button>
+							<button
+								className='px-2 py-1 rounded text-xs bg-purple-100 hover:bg-purple-200'
+								onClick={() => {
+									setDecorsByFloor((prev) => ({
+										...prev,
+										[floor]: prev[floor].map((x) =>
+											x.id === activeId ? { ...x, rotationZ: (x.rotationZ || 0) + Math.PI / 8 } : x
+										),
+									}));
+								}}
+							>
+								↷
+							</button>
+						</div>
+					</div>
+
+					{/* 삭제 버튼 */}
 					<button
-						className='px-4 py-2 rounded-full text-sm bg-red-500 hover:bg-red-600 text-white shadow-lg'
+						className='px-3 py-2 rounded-full text-sm bg-red-500 hover:bg-red-600 text-white'
 						onClick={() => {
 							setDecorsByFloor((prev) => ({
 								...prev,
