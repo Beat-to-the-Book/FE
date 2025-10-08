@@ -393,47 +393,92 @@ const BookDetailPage = () => {
 	if (!book) return null;
 
 	return (
-		<div className='space-y-8'>
-			<div className='max-w-4xl mx-auto'>
-				<div className='bg-white rounded-lg shadow-lg overflow-hidden'>
+		<div className='space-y-8 pb-12'>
+			<div className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8'>
+				<div className='bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100'>
 					<div className='md:flex'>
 						{/* 책 표지 이미지 */}
-						<div className='md:w-1/3'>
-							<img
-								src={book.frontCoverImageUrl}
-								alt={book.title}
-								className='w-full h-full object-cover'
-							/>
+						<div className='md:w-2/5 bg-gray-50'>
+							<div className='p-8 flex items-center justify-center'>
+								<img
+									src={book.frontCoverImageUrl}
+									alt={book.title}
+									className='w-full max-w-sm rounded-lg shadow-xl'
+								/>
+							</div>
 						</div>
 
 						{/* 책 정보 */}
-						<div className='p-8 md:w-2/3'>
-							<h1 className='text-3xl font-bold text-gray-900 mb-4'>{book.title}</h1>
-							<p className='text-lg text-gray-600 mb-4'>저자: {book.author}</p>
-							<p className='text-gray-600 mb-4'>출판사: {book.publisher}</p>
-							<p className='text-gray-600 mb-4'>출판일: {book.publishDate}</p>
-							<p className='text-gray-600 mb-4'>장르: {book.genre}</p>
-							<p className='text-2xl font-bold text-primary mb-6'>
-								{book.price.toLocaleString()}원
-							</p>
+						<div className='p-8 md:w-3/5 flex flex-col'>
+							<div className='flex-1'>
+								<div className='inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-semibold rounded-full mb-3'>
+									{book.genre}
+								</div>
+								<h1 className='text-4xl font-bold text-gray-900 mb-4'>{book.title}</h1>
+								<div className='space-y-3 text-gray-600 mb-6'>
+									<div className='flex items-center'>
+										<svg
+											className='w-5 h-5 mr-2 text-primary-light'
+											fill='currentColor'
+											viewBox='0 0 20 20'
+										>
+											<path d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' />
+										</svg>
+										<span className='font-medium'>저자:</span>
+										<span className='ml-2'>{book.author}</span>
+									</div>
+									<div className='flex items-center'>
+										<svg
+											className='w-5 h-5 mr-2 text-primary-light'
+											fill='currentColor'
+											viewBox='0 0 20 20'
+										>
+											<path d='M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z' />
+										</svg>
+										<span className='font-medium'>출판사:</span>
+										<span className='ml-2'>{book.publisher}</span>
+									</div>
+									<div className='flex items-center'>
+										<svg
+											className='w-5 h-5 mr-2 text-primary-light'
+											fill='currentColor'
+											viewBox='0 0 20 20'
+										>
+											<path
+												fillRule='evenodd'
+												d='M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z'
+												clipRule='evenodd'
+											/>
+										</svg>
+										<span className='font-medium'>출판일:</span>
+										<span className='ml-2'>{book.publishDate}</span>
+									</div>
+								</div>
+								<div className='bg-primary/5 border-l-4 border-primary p-4 rounded-r-lg mb-6'>
+									<div className='text-sm text-gray-600 mb-1'>판매가</div>
+									<div className='text-3xl font-bold text-primary'>
+										{book.price.toLocaleString()}원
+									</div>
+								</div>
+							</div>
 
 							{/* 버튼 그룹 */}
-							<div className='flex flex-wrap gap-4'>
+							<div className='flex flex-col sm:flex-row gap-3'>
 								<button
 									onClick={handleRental}
-									className='flex-1 bg-primary hover:bg-primary-dark text-white font-bold py-3 px-6 rounded-lg transition-colors'
+									className='flex-1 bg-primary hover:bg-primary-dark text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
 								>
 									대여하기
 								</button>
 								<button
 									onClick={handlePurchase}
-									className='flex-1 bg-primary-light hover:bg-primary text-white font-bold py-3 px-6 rounded-lg transition-colors'
+									className='flex-1 bg-primary-light hover:bg-secondary-light text-primary-dark font-semibold py-4 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
 								>
 									구매하기
 								</button>
 								<button
 									onClick={handleAddToCart}
-									className='flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg transition-colors'
+									className='flex-1 bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-all duration-300 border-2 border-gray-200 hover:border-primary-light'
 								>
 									장바구니
 								</button>
@@ -444,14 +489,14 @@ const BookDetailPage = () => {
 			</div>
 
 			{/* 리뷰 및 독후감 섹션 */}
-			<div className='max-w-4xl mx-auto'>
-				<div className='bg-white rounded-lg shadow-lg p-6'>
+			<div className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8'>
+				<div className='bg-white rounded-2xl shadow-lg p-8 border border-gray-100'>
 					{/* 탭 메뉴 */}
-					<div className='flex border-b mb-6'>
+					<div className='flex border-b-2 border-gray-100 mb-8'>
 						<button
-							className={`px-4 py-2 font-semibold ${
+							className={`px-6 py-3 font-semibold transition-all ${
 								activeTab === "reviews"
-									? "text-primary border-b-2 border-primary"
+									? "text-primary border-b-2 border-primary -mb-0.5"
 									: "text-gray-500 hover:text-primary"
 							}`}
 							onClick={() => setActiveTab("reviews")}
@@ -459,9 +504,9 @@ const BookDetailPage = () => {
 							리뷰
 						</button>
 						<button
-							className={`px-4 py-2 font-semibold ${
+							className={`px-6 py-3 font-semibold transition-all ${
 								activeTab === "reports"
-									? "text-primary border-b-2 border-primary"
+									? "text-primary border-b-2 border-primary -mb-0.5"
 									: "text-gray-500 hover:text-primary"
 							}`}
 							onClick={() => setActiveTab("reports")}
@@ -472,199 +517,251 @@ const BookDetailPage = () => {
 
 					{/* 리뷰 탭 */}
 					{activeTab === "reviews" && (
-						<div className='space-y-6'>
+						<div className='space-y-8'>
 							{/* 리뷰 작성 폼 */}
-							<form onSubmit={handleReviewSubmit} className='space-y-4'>
-								<div className='flex items-center space-x-2'>
-									<label className='font-semibold'>평점:</label>
-									<select
-										value={newReview.rating}
-										onChange={(e) => setNewReview({ ...newReview, rating: Number(e.target.value) })}
-										className='border rounded px-2 py-1'
+							<div className='bg-gray-50 rounded-xl p-6 border border-gray-200'>
+								<h3 className='text-lg font-semibold text-gray-900 mb-4'>리뷰 작성하기</h3>
+								<form onSubmit={handleReviewSubmit} className='space-y-4'>
+									<div className='flex items-center space-x-3'>
+										<label className='font-semibold text-gray-700'>평점:</label>
+										<select
+											value={newReview.rating}
+											onChange={(e) =>
+												setNewReview({ ...newReview, rating: Number(e.target.value) })
+											}
+											className='border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-primary-light focus:ring-2 focus:ring-primary-light/20 transition-all'
+										>
+											{[5, 4, 3, 2, 1].map((rating) => (
+												<option key={rating} value={rating}>
+													{"★".repeat(rating)} {rating}점
+												</option>
+											))}
+										</select>
+									</div>
+									<textarea
+										value={newReview.comment}
+										onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+										placeholder='리뷰를 작성해주세요...'
+										className='w-full h-32 p-4 border-2 border-gray-200 rounded-xl focus:border-primary-light focus:ring-2 focus:ring-primary-light/20 transition-all resize-none'
+										required
+									/>
+									<button
+										type='submit'
+										className='bg-primary text-white px-6 py-3 rounded-xl hover:bg-primary-dark font-semibold transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
 									>
-										{[5, 4, 3, 2, 1].map((rating) => (
-											<option key={rating} value={rating}>
-												{rating}점
-											</option>
-										))}
-									</select>
-								</div>
-								<textarea
-									value={newReview.comment}
-									onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-									placeholder='리뷰를 작성해주세요...'
-									className='w-full h-24 p-2 border rounded'
-									required
-								/>
-								<button
-									type='submit'
-									className='bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark'
-								>
-									리뷰 작성
-								</button>
-							</form>
+										리뷰 등록
+									</button>
+								</form>
+							</div>
 
 							{/* 리뷰 목록 */}
-							{reviewsLoading ? (
-								<div className='flex justify-center py-4'>
-									<div className='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary'></div>
-								</div>
-							) : reviewsError ? (
-								<div className='text-red-500 text-center py-4'>{reviewsError}</div>
-							) : (
-								<div className='space-y-4'>
-									{reviews.map((review) => (
-										<div key={review.reviewId} className='border-b pb-4'>
-											<div className='flex justify-between items-center mb-2'>
-												<div className='font-semibold'>{review.author}</div>
-												<div className='text-yellow-500'>
-													{"★".repeat(review.rating)}
-													{"☆".repeat(5 - review.rating)}
-												</div>
-											</div>
-											<p className='text-gray-700'>{review.comment}</p>
-											<div className='flex justify-between items-center mt-2'>
-												<div className='text-sm text-gray-500'>{review.createdAt}</div>
-												{isAuthenticated && review.author === userId && (
-													<div className='flex space-x-2'>
-														<button
-															onClick={() => {
-																setSelectedReview(review);
-																setIsReviewEditModalOpen(true);
-															}}
-															className='text-primary hover:text-primary-dark'
-														>
-															수정
-														</button>
-														<button
-															onClick={() => handleDeleteReview(review.reviewId)}
-															className='text-red-500 hover:text-red-600'
-														>
-															삭제
-														</button>
+							<div>
+								<h3 className='text-lg font-semibold text-gray-900 mb-4'>모든 리뷰</h3>
+								{reviewsLoading ? (
+									<div className='flex justify-center py-8'>
+										<div className='animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary'></div>
+									</div>
+								) : reviewsError ? (
+									<div className='bg-red-50 border border-red-200 text-red-600 text-center py-4 rounded-lg'>
+										{reviewsError}
+									</div>
+								) : reviews.length === 0 ? (
+									<div className='text-center py-8 text-gray-500'>아직 작성된 리뷰가 없습니다</div>
+								) : (
+									<div className='space-y-4'>
+										{reviews.map((review) => (
+											<div
+												key={review.reviewId}
+												className='bg-white border border-gray-200 rounded-xl p-5 hover:border-primary-light/30 transition-all'
+											>
+												<div className='flex justify-between items-start mb-3'>
+													<div className='flex items-center space-x-3'>
+														<div className='w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center'>
+															<span className='text-primary font-semibold'>{review.author[0]}</span>
+														</div>
+														<div>
+															<div className='font-semibold text-gray-900'>{review.author}</div>
+															<div className='text-sm text-gray-500'>{review.createdAt}</div>
+														</div>
 													</div>
-												)}
+													<div className='flex items-center space-x-3'>
+														<div className='text-yellow-500 text-lg'>
+															{"★".repeat(review.rating)}
+															{"☆".repeat(5 - review.rating)}
+														</div>
+														{isAuthenticated && review.author === userId && (
+															<div className='flex space-x-2'>
+																<button
+																	onClick={() => {
+																		setSelectedReview(review);
+																		setIsReviewEditModalOpen(true);
+																	}}
+																	className='text-primary hover:text-primary-light font-medium text-sm'
+																>
+																	수정
+																</button>
+																<button
+																	onClick={() => handleDeleteReview(review.reviewId)}
+																	className='text-red-500 hover:text-red-600 font-medium text-sm'
+																>
+																	삭제
+																</button>
+															</div>
+														)}
+													</div>
+												</div>
+												<p className='text-gray-700 leading-relaxed'>{review.comment}</p>
 											</div>
-										</div>
-									))}
-								</div>
-							)}
+										))}
+									</div>
+								)}
+							</div>
 						</div>
 					)}
 
 					{/* 독후감 탭 */}
 					{activeTab === "reports" && (
-						<div className='space-y-6'>
+						<div className='space-y-8'>
 							{/* 독후감 작성 폼 */}
-							<form onSubmit={handleReportSubmit} className='space-y-4'>
-								<div className='flex items-center space-x-2'>
-									<label className='font-semibold'>평점:</label>
-									<select
-										value={newReport.rating}
-										onChange={(e) => setNewReport({ ...newReport, rating: Number(e.target.value) })}
-										className='border rounded px-2 py-1'
-									>
-										{[5, 4, 3, 2, 1].map((rating) => (
-											<option key={rating} value={rating}>
-												{rating}점
-											</option>
-										))}
-									</select>
-								</div>
-								<textarea
-									value={newReport.content}
-									onChange={(e) => setNewReport({ ...newReport, content: e.target.value })}
-									placeholder='독후감을 작성해주세요...'
-									className='w-full h-32 p-2 border rounded'
-									required
-								/>
-								<div className='flex items-center space-x-2'>
-									<input
-										type='checkbox'
-										id='publicVisible'
-										checked={newReport.publicVisible}
-										onChange={(e) =>
-											setNewReport({ ...newReport, publicVisible: e.target.checked })
-										}
-										className='rounded border-gray-300 text-primary focus:ring-primary'
+							<div className='bg-gray-50 rounded-xl p-6 border border-gray-200'>
+								<h3 className='text-lg font-semibold text-gray-900 mb-4'>독후감 작성하기</h3>
+								<form onSubmit={handleReportSubmit} className='space-y-4'>
+									<div className='flex items-center space-x-3'>
+										<label className='font-semibold text-gray-700'>평점:</label>
+										<select
+											value={newReport.rating}
+											onChange={(e) =>
+												setNewReport({ ...newReport, rating: Number(e.target.value) })
+											}
+											className='border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-primary-light focus:ring-2 focus:ring-primary-light/20 transition-all'
+										>
+											{[5, 4, 3, 2, 1].map((rating) => (
+												<option key={rating} value={rating}>
+													{"★".repeat(rating)} {rating}점
+												</option>
+											))}
+										</select>
+									</div>
+									<textarea
+										value={newReport.content}
+										onChange={(e) => setNewReport({ ...newReport, content: e.target.value })}
+										placeholder='독후감을 작성해주세요...'
+										className='w-full h-40 p-4 border-2 border-gray-200 rounded-xl focus:border-primary-light focus:ring-2 focus:ring-primary-light/20 transition-all resize-none'
+										required
 									/>
-									<label htmlFor='publicVisible' className='text-sm text-gray-600'>
-										공개로 설정
-									</label>
-								</div>
-								<button
-									type='submit'
-									className='bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark'
-								>
-									독후감 작성
-								</button>
-							</form>
+									<div className='flex items-center space-x-2'>
+										<input
+											type='checkbox'
+											id='publicVisible'
+											checked={newReport.publicVisible}
+											onChange={(e) =>
+												setNewReport({ ...newReport, publicVisible: e.target.checked })
+											}
+											className='w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary-light'
+										/>
+										<label htmlFor='publicVisible' className='text-sm text-gray-700 font-medium'>
+											공개로 설정
+										</label>
+									</div>
+									<button
+										type='submit'
+										className='bg-primary text-white px-6 py-3 rounded-xl hover:bg-primary-dark font-semibold transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
+									>
+										독후감 등록
+									</button>
+								</form>
+							</div>
 
 							{/* 독후감 목록 */}
-							{reportsLoading ? (
-								<div className='flex justify-center py-4'>
-									<div className='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary'></div>
-								</div>
-							) : reportsError ? (
-								<div className='text-red-500 text-center py-4'>{reportsError}</div>
-							) : (
-								<div className='space-y-4'>
-									{reports.map((report) => {
-										const isMyReport = myReports.some((myReport) => myReport.id === report.id);
-										return (
-											<div key={report.id} className='bg-white rounded-lg shadow p-6 mb-4'>
-												<div className='flex justify-between items-start mb-4'>
-													<div>
-														<div className='flex items-center space-x-2 mb-2'>
-															<span className='font-medium'>{report.authorName}</span>
-															<span className='text-gray-500 text-sm'>
-																{new Date(report.createdAt).toLocaleDateString()}
-															</span>
-															{!report.publicVisible && (
-																<span className='bg-gray-100 px-2 py-1 rounded text-sm'>
-																	비공개
+							<div>
+								<h3 className='text-lg font-semibold text-gray-900 mb-4'>모든 독후감</h3>
+								{reportsLoading ? (
+									<div className='flex justify-center py-8'>
+										<div className='animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary'></div>
+									</div>
+								) : reportsError ? (
+									<div className='bg-red-50 border border-red-200 text-red-600 text-center py-4 rounded-lg'>
+										{reportsError}
+									</div>
+								) : reports.length === 0 ? (
+									<div className='text-center py-8 text-gray-500'>
+										아직 작성된 독후감이 없습니다
+									</div>
+								) : (
+									<div className='space-y-4'>
+										{reports.map((report) => {
+											const isMyReport = myReports.some((myReport) => myReport.id === report.id);
+											return (
+												<div
+													key={report.id}
+													className='bg-white border border-gray-200 rounded-xl p-6 hover:border-primary-light/30 transition-all'
+												>
+													<div className='flex justify-between items-start mb-4'>
+														<div className='flex items-center space-x-3 flex-1'>
+															<div className='w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center'>
+																<span className='text-primary font-semibold text-lg'>
+																	{report.authorName[0]}
 																</span>
-															)}
+															</div>
+															<div className='flex-1'>
+																<div className='flex items-center space-x-2 mb-1'>
+																	<span className='font-semibold text-gray-900'>
+																		{report.authorName}
+																	</span>
+																	<span className='text-gray-400'>•</span>
+																	<span className='text-sm text-gray-500'>
+																		{new Date(report.createdAt).toLocaleDateString()}
+																	</span>
+																	{!report.publicVisible && (
+																		<span className='bg-gray-100 px-2 py-1 rounded-full text-xs font-medium text-gray-600'>
+																			비공개
+																		</span>
+																	)}
+																</div>
+																<div className='text-yellow-500'>
+																	{"★".repeat(report.rating)}
+																	{"☆".repeat(5 - report.rating)}
+																</div>
+															</div>
 														</div>
-														<div className='text-yellow-500'>
-															{"★".repeat(report.rating)}
-															{"☆".repeat(5 - report.rating)}
-														</div>
+														{isAuthenticated && isMyReport && (
+															<div className='flex space-x-2'>
+																<button
+																	onClick={() => {
+																		setSelectedReport(report);
+																		setIsEditModalOpen(true);
+																	}}
+																	className='text-primary hover:text-primary-light font-medium text-sm'
+																>
+																	수정
+																</button>
+																<button
+																	onClick={() => handleDeleteReport(report.id)}
+																	className='text-red-500 hover:text-red-600 font-medium text-sm'
+																>
+																	삭제
+																</button>
+															</div>
+														)}
 													</div>
-													{isAuthenticated && isMyReport && (
-														<div className='flex space-x-2'>
-															<button
-																onClick={() => {
-																	setSelectedReport(report);
-																	setIsEditModalOpen(true);
-																}}
-																className='text-primary hover:text-primary-dark'
-															>
-																수정
-															</button>
-															<button
-																onClick={() => handleDeleteReport(report.id)}
-																className='text-red-500 hover:text-red-600'
-															>
-																삭제
-															</button>
-														</div>
-													)}
+													<p className='text-gray-700 whitespace-pre-wrap leading-relaxed'>
+														{report.content}
+													</p>
 												</div>
-												<p className='text-gray-700 whitespace-pre-wrap'>{report.content}</p>
-											</div>
-										);
-									})}
-								</div>
-							)}
+											);
+										})}
+									</div>
+								)}
+							</div>
 						</div>
 					)}
 				</div>
 			</div>
 
 			{/* 추천 도서 섹션 */}
-			<div className='max-w-4xl mx-auto'>
-				<div className='w-180'>
+			<div className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8'>
+				<div className='bg-gray-50 rounded-2xl p-6 border border-gray-100'>
+					<h2 className='text-2xl font-bold text-primary mb-6'>추천 도서</h2>
 					<RecommendedBooks layout='horizontal' />
 				</div>
 			</div>

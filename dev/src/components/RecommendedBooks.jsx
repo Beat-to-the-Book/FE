@@ -56,24 +56,24 @@ const RecommendedBooks = ({ layout = "vertical", onBookClick }) => {
 	};
 
 	return (
-		<div className='bg-white rounded-lg shadow-md p-4'>
+		<div className='bg-white rounded-xl shadow-sm border border-gray-100 p-4'>
 			<div className={layout === "vertical" ? "w-32" : "w-full"}>
-				<h2 className='text-lg font-bold text-primary mb-3'>추천 도서</h2>
-				<div className={layout === "vertical" ? "space-y-3" : "grid grid-cols-3 gap-2"}>
+				<h2 className='text-lg font-bold text-primary mb-4'>추천 도서</h2>
+				<div className={layout === "vertical" ? "space-y-4" : "grid grid-cols-3 gap-4"}>
 					{recommendedBooks.slice(0, layout === "vertical" ? 3 : 5).map((book) => (
 						<div
 							key={book.bookId}
 							onClick={() => handleBookClick(book.bookId)}
-							className='bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300 cursor-pointer'
+							className='bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 border border-gray-100 hover:border-primary-light/30'
 						>
-							<div className='aspect-[3/4] relative'>
+							<div className='aspect-[3/4] relative overflow-hidden'>
 								<img
 									src={book.coverImageUrl}
 									alt={book.title}
-									className='w-full h-full object-cover'
+									className='w-full h-full object-cover transition-transform duration-300 hover:scale-105'
 								/>
 							</div>
-							<div className='p-2'>
+							<div className='p-3'>
 								<h3 className='text-sm font-semibold text-gray-900 mb-1 line-clamp-2'>
 									{book.title}
 								</h3>

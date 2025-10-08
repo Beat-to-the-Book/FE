@@ -120,30 +120,40 @@ const ReportDetailPage = () => {
 
 	return (
 		<div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-			<div className='bg-white rounded-lg shadow-lg p-8'>
+			<div className='bg-white rounded-2xl shadow-lg p-8 border border-gray-100'>
 				{/* 헤더 */}
 				<div className='flex justify-between items-start mb-6'>
-					<div>
-						<h1 className='text-2xl font-bold text-gray-900 mb-2'>{report.bookTitle}</h1>
-						<div className='flex items-center space-x-4 text-sm text-gray-500'>
-							<span>작성자: {report.authorName}</span>
-							<span>작성일: {new Date(report.createdAt).toLocaleDateString()}</span>
+					<div className='flex-1'>
+						<div className='flex items-center gap-3 mb-4'>
+							<h1 className='text-3xl font-bold text-gray-900'>{report.bookTitle}</h1>
 							{!report.publicVisible && (
-								<span className='bg-gray-100 px-2 py-1 rounded'>비공개</span>
+								<span className='inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-100 text-gray-600'>
+									비공개
+								</span>
 							)}
+						</div>
+						<div className='flex items-center space-x-3 text-sm text-gray-500'>
+							<div className='flex items-center'>
+								<div className='w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center mr-2'>
+									<span className='text-primary font-semibold text-xs'>{report.authorName[0]}</span>
+								</div>
+								<span className='font-medium'>{report.authorName}</span>
+							</div>
+							<span>•</span>
+							<span>{new Date(report.createdAt).toLocaleDateString()}</span>
 						</div>
 					</div>
 					{isAuthor && (
 						<div className='flex space-x-2'>
 							<button
 								onClick={() => setIsEditModalOpen(true)}
-								className='bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark'
+								className='px-4 py-2 text-primary hover:bg-primary/10 rounded-lg font-medium transition-all'
 							>
 								수정
 							</button>
 							<button
 								onClick={handleDelete}
-								className='bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600'
+								className='px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg font-medium transition-all'
 							>
 								삭제
 							</button>
@@ -152,25 +162,37 @@ const ReportDetailPage = () => {
 				</div>
 
 				{/* 평점 */}
-				<div className='mb-6'>
-					<div className='text-yellow-500 text-2xl'>
-						{"★".repeat(report.rating)}
-						{"☆".repeat(5 - report.rating)}
+				<div className='mb-6 pb-6 border-b border-gray-100'>
+					<div className='inline-flex items-center gap-3 bg-yellow-50 px-4 py-2 rounded-lg'>
+						<div className='text-yellow-500 text-2xl'>
+							{"★".repeat(report.rating)}
+							{"☆".repeat(5 - report.rating)}
+						</div>
+						<span className='text-gray-700 font-semibold'>{report.rating}.0</span>
 					</div>
-					<span className='text-gray-600 ml-2'>{report.rating}점</span>
 				</div>
 
 				{/* 내용 */}
-				<div className='prose max-w-none'>
-					<p className='text-gray-700 whitespace-pre-wrap'>{report.content}</p>
+				<div className='prose max-w-none mb-8'>
+					<p className='text-gray-700 whitespace-pre-wrap leading-relaxed text-lg'>
+						{report.content}
+					</p>
 				</div>
 
 				{/* 하단 버튼 */}
-				<div className='mt-8 flex justify-between'>
+				<div className='pt-6 border-t border-gray-100'>
 					<button
 						onClick={() => navigate("/reports")}
-						className='text-primary hover:text-primary-dark'
+						className='inline-flex items-center text-primary hover:text-primary-light font-medium transition-all'
 					>
+						<svg className='w-5 h-5 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+							<path
+								strokeLinecap='round'
+								strokeLinejoin='round'
+								strokeWidth={2}
+								d='M10 19l-7-7m0 0l7-7m-7 7h18'
+							/>
+						</svg>
 						독후감 목록으로 돌아가기
 					</button>
 				</div>

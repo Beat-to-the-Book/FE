@@ -33,13 +33,16 @@ const WritePostPage = () => {
 	};
 
 	return (
-		<div className='container mx-auto px-4 py-8'>
-			<div className='max-w-3xl mx-auto'>
-				<h1 className='text-2xl font-bold mb-6'>게시글 작성</h1>
+		<div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+			<div className='mb-8'>
+				<h1 className='text-3xl font-bold text-primary mb-2'>게시글 작성</h1>
+				<p className='text-gray-600'>커뮤니티에 새로운 이야기를 공유해보세요</p>
+			</div>
 
+			<div className='bg-white p-8 rounded-2xl shadow-lg border border-gray-100'>
 				<form onSubmit={handleSubmit} className='space-y-6'>
 					<div>
-						<label htmlFor='title' className='block text-sm font-medium text-gray-700 mb-1'>
+						<label htmlFor='title' className='block text-sm font-semibold text-gray-700 mb-2'>
 							제목
 						</label>
 						<input
@@ -47,38 +50,38 @@ const WritePostPage = () => {
 							id='title'
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
-							className='w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary'
+							className='w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-light focus:ring-2 focus:ring-primary-light/20 transition-all'
 							placeholder='제목을 입력하세요'
 							required
 						/>
 					</div>
 
 					<div>
-						<label htmlFor='content' className='block text-sm font-medium text-gray-700 mb-1'>
+						<label htmlFor='content' className='block text-sm font-semibold text-gray-700 mb-2'>
 							내용
 						</label>
 						<textarea
 							id='content'
 							value={content}
 							onChange={(e) => setContent(e.target.value)}
-							className='w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary min-h-[300px]'
+							className='w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-light focus:ring-2 focus:ring-primary-light/20 transition-all resize-none min-h-[400px]'
 							placeholder='내용을 입력하세요'
 							required
 						/>
 					</div>
 
-					<div className='flex justify-end space-x-3'>
+					<div className='flex justify-end space-x-3 pt-4 border-t border-gray-100'>
 						<button
 							type='button'
 							onClick={() => navigate(`/community/${groupId}`)}
-							className='px-4 py-2 text-gray-600 hover:text-gray-800'
+							className='px-6 py-3 text-gray-600 hover:bg-gray-100 rounded-xl font-semibold transition-all'
 						>
 							취소
 						</button>
 						<button
 							type='submit'
 							disabled={isSubmitting}
-							className='px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50'
+							className='px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-md hover:shadow-lg transition-all'
 						>
 							{isSubmitting ? "작성 중..." : "작성하기"}
 						</button>
