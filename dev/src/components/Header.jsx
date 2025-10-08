@@ -110,12 +110,6 @@ const Header = () => {
 											책장꾸미기
 										</Link>
 										<Link
-											to='/calendar'
-											className='block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100'
-										>
-											달력
-										</Link>
-										<Link
 											to='/minigame'
 											className='block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100'
 										>

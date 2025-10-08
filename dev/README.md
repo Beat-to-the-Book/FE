@@ -1,12 +1,96 @@
-# React + Vite
+# 📚 책 관리 시스템
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite 기반의 책 관리 및 독서 기록 웹 애플리케이션입니다.
 
-Currently, two official plugins are available:
+## ✨ 주요 기능
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 📖 책 관리
 
-## Expanding the ESLint configuration
+- 책 검색 및 상세 정보 조회
+- 책 구매 및 대여
+- 장바구니 기능
+- 책장 꾸미기
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### ✍️ 독서 활동
+
+- 독후감 작성 및 관리
+- 리뷰 작성 및 공유
+- **독서 달력** - 읽은 책의 독서 기간을 달력에서 시각화
+
+### 👥 커뮤니티
+
+- 게시글 작성 및 조회
+- 그룹 활동
+- 미니게임
+
+## 📅 독서 달력 기능
+
+마이페이지에서 구매/대여한 책의 독서 기록을 달력에 추가하고 관리할 수 있습니다.
+
+### 기능 설명
+
+- 📆 월별 달력 뷰로 독서 기록 시각화
+- 📚 책 표지 이미지와 제목 표시
+- 🎨 독서 기간에 따른 색상 표시
+- 📝 독서 메모 작성
+- ✏️ 독서 기록 추가/수정/삭제
+
+### 더미 데이터 모드
+
+현재 독서 달력 기능은 **더미 데이터**로 작동합니다.
+
+실제 API 연동을 위해서는:
+
+1. `src/lib/api/reading.js` 파일 열기
+2. 주석 처리된 실제 API 코드 주석 해제
+3. 더미 API 코드 삭제 또는 주석 처리
+
+자세한 API 명세는 `src/lib/api/READING_API_SPEC.md` 참고
+
+## 🚀 시작하기
+
+### 설치
+
+```bash
+npm install
+```
+
+### 개발 서버 실행
+
+```bash
+npm run dev
+```
+
+### 빌드
+
+```bash
+npm run build
+```
+
+## 🛠️ 기술 스택
+
+- **React** - UI 라이브러리
+- **Vite** - 빌드 도구
+- **React Router** - 라우팅
+- **Zustand** - 상태 관리
+- **Axios** - HTTP 클라이언트
+- **Tailwind CSS** - 스타일링
+
+## 📁 프로젝트 구조
+
+```
+src/
+├── components/       # 재사용 가능한 컴포넌트
+│   ├── ReadingCalendar.jsx    # 독서 달력 컴포넌트
+│   ├── AddReadingModal.jsx    # 독서 기록 추가 모달
+│   └── ...
+├── pages/           # 페이지 컴포넌트
+│   ├── MyPage.jsx   # 마이페이지 (독서 달력 포함)
+│   └── ...
+├── lib/
+│   ├── api/         # API 관련
+│   │   ├── reading.js          # 독서 기록 API (더미 데이터 포함)
+│   │   └── READING_API_SPEC.md # API 명세서
+│   └── store/       # Zustand 스토어
+└── ...
+```
