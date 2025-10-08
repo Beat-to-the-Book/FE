@@ -1,7 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, Stage } from "@react-three/drei";
-import { DoubleSide } from "three";
+import { DoubleSide, TextureLoader } from "three";
+import * as THREE from "three";
+import { purchaseAPI, rentalAPI } from "../lib/api/purchase";
 
 const FLOOR_MIN = 1;
 const FLOOR_MAX = 7; // 선반 7단
@@ -60,6 +62,101 @@ function Bookcase() {
 			<Shelf y={5.2} depth={1.0} />
 			<Shelf y={6.2} depth={1.0} />
 		</group>
+	);
+}
+
+function Book({ book, position, isActive, onClick }) {
+	const BOOK_HEIGHT = 0.6;
+	const BOOK_DEPTH = 0.4;
+	const BOOK_WIDTH = 0.08;
+
+	// 표지 이미지 텍스처 (useLoader는 조건부로 사용 불가하므로 useState로 처리)
+	const [textures, setTextures] = useState({ front: null, back: null, spine: null });
+
+	useEffect(() => {
+		const loader = new TextureLoader();
+		const loadPromises = [];
+
+		if (book.frontCoverImageUrl) {
+			loadPromises.push(
+				loader
+					.loadAsync(book.frontCoverImageUrl)
+					.then((tex) => ({ type: "front", texture: tex }))
+					.catch(() => null)
+			);
+		}
+		if (book.backCoverImageUrl) {
+			loadPromises.push(
+				loader
+					.loadAsync(book.backCoverImageUrl)
+					.then((tex) => ({ type: "back", texture: tex }))
+					.catch(() => null)
+			);
+		}
+		if (book.leftCoverImageUrl) {
+			loadPromises.push(
+				loader
+					.loadAsync(book.leftCoverImageUrl)
+					.then((tex) => ({ type: "spine", texture: tex }))
+					.catch(() => null)
+			);
+		}
+
+		Promise.all(loadPromises).then((results) => {
+			const newTextures = { front: null, back: null, spine: null };
+			results.forEach((result) => {
+				if (result) {
+					newTextures[result.type] = result.texture;
+				}
+			});
+			setTextures(newTextures);
+		});
+	}, [book.frontCoverImageUrl, book.backCoverImageUrl, book.leftCoverImageUrl]);
+
+	// 6개 면에 대한 재질 배열 (순서: +X, -X, +Y, -Y, +Z, -Z)
+	const materials = useMemo(() => {
+		return [
+			// +X: 뒤
+			textures.back
+				? new THREE.MeshStandardMaterial({ map: textures.back })
+				: new THREE.MeshStandardMaterial({ color: book.color || "#8b4513" }),
+			// -X: 앞
+			textures.front
+				? new THREE.MeshStandardMaterial({ map: textures.front })
+				: new THREE.MeshStandardMaterial({ color: book.color || "#8b4513" }),
+			// +Y: 위
+			new THREE.MeshStandardMaterial({ color: "#ffffff" }),
+			// -Y: 아래
+			new THREE.MeshStandardMaterial({ color: "#ffffff" }),
+			// +Z: 오른쪽
+			new THREE.MeshStandardMaterial({ color: "#fffef0" }),
+			// -Z: 왼쪽 (책등)
+			textures.spine
+				? new THREE.MeshStandardMaterial({ map: textures.spine })
+				: new THREE.MeshStandardMaterial({ color: book.color || "#8b4513" }),
+		];
+	}, [textures, book.color]);
+
+	return (
+		<mesh
+			position={position}
+			rotation={[0, Math.PI / 2, 0]}
+			scale={isActive ? 1.15 : 1}
+			castShadow
+			material={materials}
+			onPointerEnter={(e) => {
+				e.stopPropagation();
+			}}
+			onPointerLeave={(e) => {
+				e.stopPropagation();
+			}}
+			onClick={(e) => {
+				e.stopPropagation();
+				onClick?.();
+			}}
+		>
+			<boxGeometry args={[BOOK_WIDTH, BOOK_HEIGHT, BOOK_DEPTH]} />
+		</mesh>
 	);
 }
 
@@ -226,13 +323,31 @@ export default function BookshelfPage() {
 	const [activeId, setActiveId] = useState(null);
 	const [showHelp, setShowHelp] = useState(false);
 
-	// 책(Mock) 데이터: 추후 rental/purchase 연동 교체
-	const [books] = useState([
-		{ id: "b1", title: "대여 A", type: "rental", color: "#ffd166" },
-		{ id: "b2", title: "구매 B", type: "purchase", color: "#06d6a0" },
-		{ id: "b3", title: "구매 C", type: "purchase", color: "#118ab2" },
-		{ id: "b4", title: "대여 D", type: "rental", color: "#ef476f" },
-	]);
+	// 책 데이터: API에서 로드
+	const [books, setBooks] = useState([]);
+	const [booksLoading, setBooksLoading] = useState(true);
+
+	// API에서 구매/대여 내역 가져오기
+	useEffect(() => {
+		Promise.all([purchaseAPI.getHistory(), rentalAPI.getHistory()])
+			.then(([purchaseRes, rentalRes]) => {
+				const purchases = (purchaseRes.data || []).map((book) => ({
+					...book,
+					color: "#8b4513", // 기본 갈색
+				}));
+				const rentals = (rentalRes.data || []).map((book) => ({
+					...book,
+					color: "#8b4513", // 기본 갈색
+				}));
+				const combined = [...purchases, ...rentals];
+				setBooks(combined);
+				setBooksLoading(false);
+			})
+			.catch((error) => {
+				console.error("책 데이터 로드 실패:", error);
+				setBooksLoading(false);
+			});
+	}, []);
 
 	// MiniGamePage 비율(1.5:1:0.2)을 축소 적용 + 90도 회전 후 가로 길이(BOOK_DEPTH) 기준 간격
 	const BOOK_HEIGHT = 0.6;
@@ -377,6 +492,13 @@ export default function BookshelfPage() {
 
 	return (
 		<div className='w-full h-[calc(100vh-64px)] bg-[#f9f6f1] relative'>
+			{/* 로딩 상태 */}
+			{booksLoading && (
+				<div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-white px-6 py-4 rounded-lg shadow-lg'>
+					<div className='text-gray-700'>책 데이터 로딩 중...</div>
+				</div>
+			)}
+
 			{/* 상단 층 표시 + 네비게이션 */}
 			<div className='absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2'>
 				<button
@@ -466,32 +588,19 @@ export default function BookshelfPage() {
 							))
 						)}
 
-						{/* 책 렌더 (MiniGamePage 비율 적용, 표지가 보이도록 Y 90도 회전) */}
+						{/* 책 렌더 (실제 표지 이미지 적용) */}
 						{booksLaidOut.map((bk) => (
-							<mesh
+							<Book
 								key={bk.id}
+								book={bk}
 								position={[
 									bk.position[0],
 									bk.position[1],
 									activeBookId === bk.id ? BOOK_ACTIVE_Z : BOOK_BASE_Z,
 								]}
-								rotation={[0, Math.PI / 2, 0]}
-								scale={activeBookId === bk.id ? 1.15 : 1}
-								castShadow
-								onPointerEnter={(e) => {
-									e.stopPropagation();
-								}}
-								onPointerLeave={(e) => {
-									e.stopPropagation();
-								}}
-								onClick={(e) => {
-									e.stopPropagation();
-									setActiveBookId((cur) => (cur === bk.id ? null : bk.id));
-								}}
-							>
-								<boxGeometry args={[BOOK_WIDTH, BOOK_HEIGHT, BOOK_DEPTH]} />
-								<meshStandardMaterial color={bk.color} />
-							</mesh>
+								isActive={activeBookId === bk.id}
+								onClick={() => setActiveBookId((cur) => (cur === bk.id ? null : bk.id))}
+							/>
 						))}
 					</group>
 				</Stage>
@@ -511,7 +620,7 @@ export default function BookshelfPage() {
 			</Canvas>
 
 			{/* 장식 선택 (MVP: 더미 버튼) */}
-			<div className='absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white/80 rounded-full px-3 py-2 shadow'>
+			<div className='absolute bottom-28 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white/80 rounded-full px-3 py-2 shadow'>
 				<button
 					className={`px-3 py-1 rounded-full text-sm ${
 						selectedDeco === 1 ? "bg-pink-400 text-white" : "bg-pink-200 hover:bg-pink-300"
@@ -564,7 +673,7 @@ export default function BookshelfPage() {
 
 			{/* 선택한 장식 컨트롤 */}
 			{activeId && (
-				<div className='absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white rounded-full px-3 py-2 shadow-lg'>
+				<div className='absolute bottom-48 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white rounded-full px-3 py-2 shadow-lg'>
 					{/* X축 회전 */}
 					<div className='flex flex-col items-center gap-1'>
 						<div className='text-xs text-gray-600'>X축</div>
