@@ -165,49 +165,51 @@ const HomePage = () => {
 					</div>
 
 					{/* 페이지네이션 UI */}
-					<div className='flex justify-center items-center space-x-2 mt-8'>
-						<button
-							onClick={() => handleGroupChange("prev")}
-							disabled={getCurrentGroup() === 0}
-							className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
-						>
-							{"<<"}
-						</button>
-						<button
-							onClick={() => handlePageChange(currentPage - 1)}
-							disabled={currentPage === 1}
-							className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
-						>
-							이전
-						</button>
-						{getPageGroups()[getCurrentGroup()].map((pageNum) => (
+					{totalPages > 0 && (
+						<div className='flex justify-center items-center space-x-2 mt-8'>
 							<button
-								key={pageNum}
-								onClick={() => handlePageChange(pageNum)}
-								className={`px-4 py-2 rounded-lg transition-all ${
-									currentPage === pageNum
-										? "bg-primary text-white shadow-md"
-										: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-primary-light"
-								}`}
+								onClick={() => handleGroupChange("prev")}
+								disabled={getCurrentGroup() === 0}
+								className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
 							>
-								{pageNum}
+								{"<<"}
 							</button>
-						))}
-						<button
-							onClick={() => handlePageChange(currentPage + 1)}
-							disabled={currentPage === totalPages}
-							className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
-						>
-							다음
-						</button>
-						<button
-							onClick={() => handleGroupChange("next")}
-							disabled={getCurrentGroup() === getPageGroups().length - 1}
-							className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
-						>
-							{">>"}
-						</button>
-					</div>
+							<button
+								onClick={() => handlePageChange(currentPage - 1)}
+								disabled={currentPage === 1}
+								className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
+							>
+								이전
+							</button>
+							{getPageGroups()[getCurrentGroup()]?.map((pageNum) => (
+								<button
+									key={pageNum}
+									onClick={() => handlePageChange(pageNum)}
+									className={`px-4 py-2 rounded-lg transition-all ${
+										currentPage === pageNum
+											? "bg-primary text-white shadow-md"
+											: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-primary-light"
+									}`}
+								>
+									{pageNum}
+								</button>
+							))}
+							<button
+								onClick={() => handlePageChange(currentPage + 1)}
+								disabled={currentPage === totalPages}
+								className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
+							>
+								다음
+							</button>
+							<button
+								onClick={() => handleGroupChange("next")}
+								disabled={getCurrentGroup() === getPageGroups().length - 1}
+								className='px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 hover:border-primary-light transition-all'
+							>
+								{">>"}
+							</button>
+						</div>
+					)}
 				</div>
 				<div className='hidden xl:block fixed right-8 top-20 w-42'>
 					<RecommendedBooks layout='vertical' />
