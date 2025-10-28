@@ -4,6 +4,7 @@ import { OrbitControls, Stage } from "@react-three/drei";
 import { DoubleSide, TextureLoader } from "three";
 import * as THREE from "three";
 import { purchaseAPI, rentalAPI } from "../lib/api/purchase";
+import useBookshelfStore from "../lib/store/bookshelfStore";
 
 const FLOOR_MIN = 1;
 const FLOOR_MAX = 7; // 선반 7단
@@ -313,22 +314,34 @@ function Decoration({
 export default function BookshelfPage() {
 	const [floor, setFloor] = useState(1); // 보기+배치 선반
 	const [selectedDeco, setSelectedDeco] = useState(1); // 1/2/3
-	const [decorsByFloor, setDecorsByFloor] = useState(() => {
-		try {
-			const raw = localStorage.getItem("bookshelf-decor-v1");
-			if (raw) return JSON.parse(raw);
-		} catch {}
-		return { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] };
-	});
+
+	// Zustand Store 사용
+	const {
+		decorsByFloor,
+		setDecorsByFloor,
+		updateFloorDecorations,
+		loadBookshelfData,
+		saveBookshelfData,
+		isLoading: bookshelfLoading,
+		error: bookshelfError,
+		lastSaved,
+	} = useBookshelfStore();
+
 	const [activeId, setActiveId] = useState(null);
 	const [showHelp, setShowHelp] = useState(false);
+	const [isSaving, setIsSaving] = useState(false);
+	const [saveMessage, setSaveMessage] = useState("");
 
 	// 책 데이터: API에서 로드
 	const [books, setBooks] = useState([]);
 	const [booksLoading, setBooksLoading] = useState(true);
 
-	// API에서 구매/대여 내역 가져오기
+	// 컴포넌트 마운트 시 책장 데이터와 책 데이터 로드
 	useEffect(() => {
+		// 책장 장식품 데이터 로드
+		loadBookshelfData();
+
+		// 책 데이터 로드
 		Promise.all([purchaseAPI.getHistory(), rentalAPI.getHistory()])
 			.then(([purchaseRes, rentalRes]) => {
 				const purchases = (purchaseRes.data || []).map((book) => ({
@@ -347,7 +360,7 @@ export default function BookshelfPage() {
 				console.error("책 데이터 로드 실패:", error);
 				setBooksLoading(false);
 			});
-	}, []);
+	}, [loadBookshelfData]);
 
 	// MiniGamePage 비율(1.5:1:0.2)을 축소 적용 + 90도 회전 후 가로 길이(BOOK_DEPTH) 기준 간격
 	const BOOK_HEIGHT = 0.6;
@@ -379,9 +392,31 @@ export default function BookshelfPage() {
 
 	const [activeBookId, setActiveBookId] = useState(null);
 
+	// 자동 저장 기능 (디바운스)
 	useEffect(() => {
-		localStorage.setItem("bookshelf-decor-v1", JSON.stringify(decorsByFloor));
+		const timer = setTimeout(() => {
+			if (decorsByFloor) {
+				handleSave();
+			}
+		}, 2000); // 2초 후 자동 저장
+
+		return () => clearTimeout(timer);
 	}, [decorsByFloor]);
+
+	// 저장 핸들러
+	const handleSave = async () => {
+		try {
+			setIsSaving(true);
+			await saveBookshelfData();
+			setSaveMessage("저장 완료");
+			setTimeout(() => setSaveMessage(""), 2000);
+		} catch (error) {
+			setSaveMessage("저장 실패");
+			setTimeout(() => setSaveMessage(""), 2000);
+		} finally {
+			setIsSaving(false);
+		}
+	};
 
 	const canUp = floor < FLOOR_MAX;
 	const canDown = floor > FLOOR_MIN;
@@ -472,7 +507,7 @@ export default function BookshelfPage() {
 			e.preventDefault();
 			setDecorsByFloor((prev) => {
 				const list = prev[floor] || [];
-				return {
+				const updated = {
 					...prev,
 					[floor]: list.map((item) => {
 						if (item.id !== activeId) return item;
@@ -483,6 +518,7 @@ export default function BookshelfPage() {
 						return { ...item, position: [nx, ny, nz] };
 					}),
 				};
+				return updated;
 			});
 		}
 
@@ -493,9 +529,32 @@ export default function BookshelfPage() {
 	return (
 		<div className='w-full h-[calc(100vh-64px)] bg-[#f9f6f1] relative'>
 			{/* 로딩 상태 */}
-			{booksLoading && (
+			{(booksLoading || bookshelfLoading) && (
 				<div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-white px-6 py-4 rounded-lg shadow-lg'>
-					<div className='text-gray-700'>책 데이터 로딩 중...</div>
+					<div className='text-gray-700'>
+						{booksLoading && "책 데이터 로딩 중..."}
+						{bookshelfLoading && "책장 데이터 로딩 중..."}
+					</div>
+				</div>
+			)}
+
+			{/* 저장 상태 표시 */}
+			{saveMessage && (
+				<div className='absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-white px-4 py-2 rounded-lg shadow-lg'>
+					<div
+						className={`text-sm ${
+							saveMessage.includes("완료") ? "text-green-600" : "text-red-600"
+						}`}
+					>
+						{saveMessage}
+					</div>
+				</div>
+			)}
+
+			{/* 에러 메시지 */}
+			{bookshelfError && (
+				<div className='absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-red-50 px-4 py-2 rounded-lg shadow-lg border border-red-200'>
+					<div className='text-sm text-red-600'>{bookshelfError}</div>
 				</div>
 			)}
 
@@ -539,9 +598,25 @@ export default function BookshelfPage() {
 						<li>층 전환: 카메라가 해당 층 선반을 향하고, 모든 층 장식이 보임</li>
 						<li>현재 층의 장식만 클릭/드래그/조작 가능</li>
 						<li>장식품은 현재 층의 선반 범위 내에서만 이동 가능</li>
+						<li className='text-blue-600 font-medium'>변경사항은 2초 후 자동 저장됩니다</li>
 					</ul>
 				</div>
 			)}
+
+			{/* 수동 저장 버튼 */}
+			<div className='absolute top-3 right-4 z-10'>
+				<button
+					onClick={handleSave}
+					disabled={isSaving}
+					className={`px-4 py-2 rounded-lg text-sm font-medium shadow transition-colors ${
+						isSaving
+							? "bg-gray-300 text-gray-500 cursor-not-allowed"
+							: "bg-blue-500 hover:bg-blue-600 text-white"
+					}`}
+				>
+					{isSaving ? "저장 중..." : "저장하기"}
+				</button>
+			</div>
 
 			{/* 3D 뷰 */}
 			<Canvas shadows camera={{ position: cameraPosition, fov: 50 }}>
