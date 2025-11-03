@@ -217,8 +217,23 @@ const BookDetailPage = () => {
 				bookId: parseInt(bookId),
 			});
 			alert("대여가 완료되었습니다.");
-		} catch (_) {
-			alert("대여에 실패했습니다. 다시 시도해주세요.");
+		} catch (error) {
+			console.error("대여 에러:", error);
+			if (error.response?.status === 401) {
+				alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+				navigate("/login");
+			} else if (error.response?.status === 500 || error.response?.status === 400) {
+				const errorMessage = error.response?.data?.message || "";
+				if (errorMessage.includes("대여") || errorMessage.includes("이미")) {
+					alert("이미 대여 중인 책입니다.\n마이페이지에서 현재 대여 중인 책을 확인할 수 있습니다.");
+				} else {
+					alert(
+						`대여에 실패했습니다: ${errorMessage || "이미 대여 중이거나 대여할 수 없는 책입니다."}`
+					);
+				}
+			} else {
+				alert(`대여에 실패했습니다: ${error.response?.data?.message || "알 수 없는 오류"}`);
+			}
 		}
 	};
 
@@ -230,13 +245,23 @@ const BookDetailPage = () => {
 		}
 
 		try {
-			await purchaseAPI.add({
-				userId,
+			// checkout으로 주문 생성
+			const checkoutResponse = await purchaseAPI.checkout({
 				bookId: parseInt(bookId),
+				quantity: 1,
 			});
+
+			// 결제 확인
+			await purchaseAPI.confirm(checkoutResponse.data.orderId);
 			alert("구매가 완료되었습니다.");
-		} catch (_) {
-			alert("구매에 실패했습니다. 다시 시도해주세요.");
+		} catch (error) {
+			console.error("구매 에러:", error);
+			if (error.response?.status === 401) {
+				alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+				navigate("/login");
+			} else {
+				alert(`구매에 실패했습니다: ${error.response?.data?.message || "알 수 없는 오류"}`);
+			}
 		}
 	};
 

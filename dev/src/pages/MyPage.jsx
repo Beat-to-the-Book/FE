@@ -6,48 +6,10 @@ import { rentalAPI } from "../lib/api/rental";
 import { reportAPI } from "../lib/api/report";
 import { reviewAPI } from "../lib/api/review";
 import { readingAPI } from "../lib/api/reading";
+import { pointsAPI } from "../lib/api/points";
 import useAuthStore from "../lib/store/authStore";
 import ReadingCalendar from "../components/ReadingCalendar";
 import AddReadingModal from "../components/AddReadingModal";
-
-// 임시 데이터 (API 연동 전까지 사용)
-const TEMP_BOOK_REPORTS = [
-	{
-		id: 1,
-		bookId: 1,
-		bookTitle: "인생을 바꾼 한 권의 책",
-		title: "나의 독서 여정",
-		content: "이 책을 통해 많은 것을 배웠습니다...",
-		createdAt: "2025-10-15",
-	},
-	{
-		id: 2,
-		bookId: 2,
-		bookTitle: "미움받을 용기",
-		title: "자기 수용의 여정",
-		content: "이 책은 제 인생의 전환점이 되었습니다...",
-		createdAt: "2024-10-13",
-	},
-];
-
-const TEMP_REVIEWS = [
-	{
-		id: 1,
-		bookId: 1,
-		bookTitle: "인생을 바꾼 한 권의 책",
-		rating: 5,
-		content: "정말 좋은 책이었습니다. 추천합니다!",
-		createdAt: "2025-10-16",
-	},
-	{
-		id: 2,
-		bookId: 2,
-		bookTitle: "미움받을 용기",
-		rating: 4,
-		content: "기대했던 것보다 좋았어요.",
-		createdAt: "2025-10-14",
-	},
-];
 
 // 중복 제거 및 최신 기록만 유지하는 유틸리티 함수
 const removeDuplicates = (books, dateField) => {
@@ -71,7 +33,9 @@ const MyPage = () => {
 	const [error, setError] = useState("");
 	const [purchasedBooks, setPurchasedBooks] = useState([]);
 	const [rentedBooks, setRentedBooks] = useState([]);
+	const [activeRentals, setActiveRentals] = useState([]);
 	const [myReports, setMyReports] = useState([]);
+	const [activeRentalsLoading, setActiveRentalsLoading] = useState(false);
 	const [myReviews, setMyReviews] = useState([]);
 	const [reviewsLoading, setReviewsLoading] = useState(false);
 	const [reviewsError, setReviewsError] = useState("");
@@ -79,6 +43,8 @@ const MyPage = () => {
 	const [selectedDate, setSelectedDate] = useState(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingReading, setEditingReading] = useState(null);
+	const [points, setPoints] = useState(0);
+	const [pointsLoading, setPointsLoading] = useState(true);
 
 	useEffect(() => {
 		if (!isAuthenticated) {
@@ -89,10 +55,18 @@ const MyPage = () => {
 		const fetchData = async () => {
 			try {
 				setLoading(true);
-				const [purchasedResponse, rentedResponse, reportsResponse] = await Promise.all([
+				const [
+					purchasedResponse,
+					rentedResponse,
+					reportsResponse,
+					activeRentalsResponse,
+					pointsResponse,
+				] = await Promise.all([
 					purchaseAPI.getHistory(),
 					rentalAPI.getHistory(),
 					reportAPI.getMyReports(),
+					rentalAPI.getActive().catch(() => ({ data: [] })), // 활성 대여가 없을 수 있음
+					pointsAPI.getMyPoints().catch(() => ({ data: { totalPoints: 0 } })),
 				]);
 
 				// 중복 제거 및 최신 기록만 유지
@@ -101,11 +75,15 @@ const MyPage = () => {
 
 				setPurchasedBooks(uniquePurchasedBooks);
 				setRentedBooks(uniqueRentedBooks);
+				setActiveRentals(activeRentalsResponse.data || []);
 				setMyReports(reportsResponse.data);
+				setPoints(pointsResponse.data?.totalPoints || 0);
+				setPointsLoading(false);
 				setLoading(false);
 			} catch (error) {
 				setError("데이터를 불러오는데 실패했습니다.");
 				setLoading(false);
+				setPointsLoading(false);
 			}
 		};
 
@@ -193,7 +171,7 @@ const MyPage = () => {
 
 	const handleAddReading = async (data) => {
 		try {
-			// 더미 데이터용: 선택한 책 정보 찾기
+			// 선택한 책 정보 찾기
 			const selectedBook = allBooks.find((book) => book.id === parseInt(data.bookId));
 			await readingAPI.add(data, selectedBook);
 			alert("독서 기록이 추가되었습니다.");
@@ -239,6 +217,68 @@ const MyPage = () => {
 		}
 	};
 
+	// 대여 반납 처리
+	const handleReturnRental = async (rentalId, e) => {
+		e.stopPropagation();
+		if (!window.confirm("정말로 이 책을 반납하시겠습니까?")) {
+			return;
+		}
+
+		try {
+			await rentalAPI.return(rentalId);
+			alert("반납이 완료되었습니다.");
+			// 데이터 새로고침
+			const [rentedResponse, activeRentalsResponse] = await Promise.all([
+				rentalAPI.getHistory(),
+				rentalAPI.getActive().catch(() => ({ data: [] })),
+			]);
+			const uniqueRentedBooks = removeDuplicates(rentedResponse.data, "rentalDate");
+			setRentedBooks(uniqueRentedBooks);
+			setActiveRentals(activeRentalsResponse.data || []);
+		} catch (error) {
+			console.error("반납 에러:", error);
+			if (error.response?.status === 401) {
+				alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+				navigate("/login");
+			} else {
+				alert(`반납에 실패했습니다: ${error.response?.data?.message || "알 수 없는 오류"}`);
+			}
+		}
+	};
+
+	// 환불 신청
+	const handleRefund = async (purchaseId, e) => {
+		e.stopPropagation();
+		const reason = window.prompt("환불 사유를 입력해주세요:");
+		if (!reason || reason.trim() === "") {
+			return;
+		}
+
+		if (!window.confirm("정말로 이 구매를 환불하시겠습니까?")) {
+			return;
+		}
+
+		try {
+			await purchaseAPI.refund({
+				purchaseId,
+				reason: reason.trim(),
+			});
+			alert("환불 신청이 완료되었습니다.");
+			// 구매 이력 새로고침
+			const purchasedResponse = await purchaseAPI.getHistory();
+			const uniquePurchasedBooks = removeDuplicates(purchasedResponse.data, "purchaseDate");
+			setPurchasedBooks(uniquePurchasedBooks);
+		} catch (error) {
+			console.error("환불 에러:", error);
+			if (error.response?.status === 401) {
+				alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+				navigate("/login");
+			} else {
+				alert(`환불 신청에 실패했습니다: ${error.response?.data?.message || "알 수 없는 오류"}`);
+			}
+		}
+	};
+
 	// 구매한 책 + 대여한 책 목록 (중복 제거)
 	const allBooks = [...purchasedBooks, ...rentedBooks].filter(
 		(book, index, self) => index === self.findIndex((b) => b.id === book.id)
@@ -262,7 +302,16 @@ const MyPage = () => {
 
 	return (
 		<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-			<h1 className='text-3xl font-bold text-gray-900 mb-6'>마이페이지</h1>
+			<div className='flex items-center justify-between mb-6'>
+				<h1 className='text-3xl font-bold text-gray-900'>마이페이지</h1>
+				{/* 포인트 표시 */}
+				<div className='flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-full border-2 border-yellow-200 shadow-md'>
+					<span className='text-yellow-500 text-xl'>⭐</span>
+					<span className='text-gray-800 font-bold text-lg'>
+						{pointsLoading ? "로딩..." : `${points}P`}
+					</span>
+				</div>
+			</div>
 
 			{/* 통계 카드 */}
 			<div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-8'>
@@ -407,9 +456,9 @@ const MyPage = () => {
 			</div>
 
 			{/* 탭 메뉴 */}
-			<div className='flex gap-2 mb-8 bg-gray-50 p-1 rounded-lg border border-gray-200'>
+			<div className='flex gap-2 mb-8 bg-gray-50 p-1 rounded-lg border border-gray-200 overflow-x-auto'>
 				<button
-					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 ${
+					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
 						activeTab === "reports"
 							? "bg-white text-primary shadow-sm"
 							: "text-gray-600 hover:text-primary hover:bg-white/50"
@@ -419,7 +468,7 @@ const MyPage = () => {
 					📝 내 독후감
 				</button>
 				<button
-					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 ${
+					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
 						activeTab === "reviews"
 							? "bg-white text-primary shadow-sm"
 							: "text-gray-600 hover:text-primary hover:bg-white/50"
@@ -429,7 +478,17 @@ const MyPage = () => {
 					⭐ 내 리뷰
 				</button>
 				<button
-					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 ${
+					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
+						activeTab === "achievements"
+							? "bg-white text-primary shadow-sm"
+							: "text-gray-600 hover:text-primary hover:bg-white/50"
+					}`}
+					onClick={() => setActiveTab("achievements")}
+				>
+					🏆 도전과제
+				</button>
+				<button
+					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
 						activeTab === "purchased"
 							? "bg-white text-primary shadow-sm"
 							: "text-gray-600 hover:text-primary hover:bg-white/50"
@@ -439,14 +498,29 @@ const MyPage = () => {
 					📚 구매한 책
 				</button>
 				<button
-					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 ${
+					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
+						activeTab === "active-rentals"
+							? "bg-white text-primary shadow-sm"
+							: "text-gray-600 hover:text-primary hover:bg-white/50"
+					}`}
+					onClick={() => setActiveTab("active-rentals")}
+				>
+					📖 대여 중
+					{activeRentals.length > 0 && (
+						<span className='ml-1 px-1.5 py-0.5 bg-primary text-white text-xs rounded-full'>
+							{activeRentals.length}
+						</span>
+					)}
+				</button>
+				<button
+					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
 						activeTab === "rented"
 							? "bg-white text-primary shadow-sm"
 							: "text-gray-600 hover:text-primary hover:bg-white/50"
 					}`}
 					onClick={() => setActiveTab("rented")}
 				>
-					🔖 대여한 책
+					🔖 대여 이력
 				</button>
 			</div>
 
@@ -587,51 +661,149 @@ const MyPage = () => {
 				</div>
 			)}
 
+			{/* 도전과제 탭 */}
+			{activeTab === "achievements" && (
+				<div className='space-y-4'>
+					<div className='bg-white rounded-xl shadow-lg p-6 border border-gray-100'>
+						<h2 className='text-2xl font-bold text-gray-900 mb-6'>📚 읽은 책 권수 도전과제</h2>
+						<div className='space-y-4'>
+							{[
+								{ count: 10, points: 5 },
+								{ count: 20, points: 10 },
+								{ count: 30, points: 15 },
+								{ count: 40, points: 20 },
+								{ count: 50, points: 25 },
+							].map((achievement, index) => {
+								const completed = readingRecords.length >= achievement.count;
+								return (
+									<div
+										key={index}
+										className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+											completed
+												? "bg-green-50 border-green-300 shadow-md"
+												: "bg-gray-50 border-gray-200"
+										}`}
+									>
+										<div className='flex items-center gap-4'>
+											<div
+												className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold ${
+													completed ? "bg-green-500 text-white" : "bg-gray-300 text-gray-600"
+												}`}
+											>
+												{completed ? "✓" : achievement.count}
+											</div>
+											<div>
+												<div className='font-semibold text-gray-900'>
+													읽은 책 {achievement.count}권
+												</div>
+												<div className='text-sm text-gray-600'>
+													현재: {readingRecords.length}권 / {achievement.count}권
+												</div>
+											</div>
+										</div>
+										<div className='flex items-center gap-2'>
+											<span className='text-yellow-500 text-lg'>⭐</span>
+											<span
+												className={`font-bold ${completed ? "text-green-600" : "text-gray-400"}`}
+											>
+												+{achievement.points}P
+											</span>
+											{completed && (
+												<span className='ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full'>
+													완료
+												</span>
+											)}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+						<div className='mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg'>
+							<p className='text-sm text-blue-800'>
+								💡 도전과제 완료 시 포인트는 자동으로 지급됩니다. (나중에 알림 기능 추가 예정)
+							</p>
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* 구매한 책 탭 */}
 			{activeTab === "purchased" && (
 				<div>
 					{purchasedBooks.length > 0 ? (
 						<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
-							{purchasedBooks.map((book) => (
-								<div
-									key={book.id}
-									className='group bg-white rounded-lg shadow hover:shadow-xl overflow-hidden cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
-									onClick={() => navigate(`/book/${book.id}`)}
-								>
-									<div className='relative'>
-										<img
-											src={book.frontCoverImageUrl}
-											alt={book.title}
-											className='w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300'
-										/>
-										<div className='absolute top-2 right-2 bg-primary text-white px-2 py-1 rounded-full text-xs font-semibold shadow-md'>
-											구매완료
-										</div>
-									</div>
-									<div className='p-4'>
-										<h3 className='font-bold text-base text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors'>
-											{book.title}
-										</h3>
-										<p className='text-sm text-gray-600 mb-3'>{book.author}</p>
-										<div className='flex items-center gap-1.5 text-xs text-gray-500'>
-											<svg
-												className='w-4 h-4 text-primary'
-												fill='none'
-												stroke='currentColor'
-												viewBox='0 0 24 24'
-											>
-												<path
-													strokeLinecap='round'
-													strokeLinejoin='round'
-													strokeWidth={2}
-													d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'
+							{purchasedBooks.map((book) => {
+								const isRefundRequested = book.status === "REFUND_REQUESTED";
+								return (
+									<div
+										key={book.id}
+										className='group relative bg-white rounded-lg shadow hover:shadow-xl overflow-hidden cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
+										onClick={() => navigate(`/book/${book.bookId || book.id}`)}
+									>
+										<div className='relative'>
+											{book.frontCoverImageUrl ? (
+												<img
+													src={book.frontCoverImageUrl}
+													alt={book.bookTitle || book.title}
+													className='w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300'
 												/>
-											</svg>
-											{new Date(book.purchaseDate).toLocaleDateString("ko-KR")}
+											) : (
+												<div className='w-full h-56 bg-gray-100 flex items-center justify-center'>
+													<span className='text-4xl'>📚</span>
+												</div>
+											)}
+											<div
+												className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${
+													isRefundRequested ? "bg-orange-500 text-white" : "bg-primary text-white"
+												}`}
+											>
+												{isRefundRequested ? "환불 신청" : "구매완료"}
+											</div>
+										</div>
+										<div className='p-4'>
+											<h3 className='font-bold text-base text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors'>
+												{book.bookTitle || book.title}
+											</h3>
+											<p className='text-sm text-gray-600 mb-3'>{book.author}</p>
+											<div className='space-y-2'>
+												<div className='flex items-center gap-1.5 text-xs text-gray-500'>
+													<svg
+														className='w-4 h-4 text-primary'
+														fill='none'
+														stroke='currentColor'
+														viewBox='0 0 24 24'
+													>
+														<path
+															strokeLinecap='round'
+															strokeLinejoin='round'
+															strokeWidth={2}
+															d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'
+														/>
+													</svg>
+													{new Date(book.purchaseDate).toLocaleDateString("ko-KR")}
+												</div>
+												{!isRefundRequested && (
+													<button
+														onClick={(e) => {
+															e.stopPropagation();
+															handleRefund(book.id, e);
+														}}
+														className='w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors'
+													>
+														환불 신청
+													</button>
+												)}
+												{isRefundRequested && book.refundReason && (
+													<div className='text-xs text-gray-600 bg-gray-50 p-2 rounded'>
+														<div className='font-medium mb-1'>환불 사유:</div>
+														<div className='text-gray-700'>{book.refundReason}</div>
+													</div>
+												)}
+											</div>
 										</div>
 									</div>
-								</div>
-							))}
+								);
+							})}
 						</div>
 					) : (
 						<div className='text-center py-16 bg-gray-50 rounded-lg border border-dashed border-gray-300'>
@@ -643,7 +815,108 @@ const MyPage = () => {
 				</div>
 			)}
 
-			{/* 대여한 책 탭 */}
+			{/* 현재 대여 중인 책 탭 */}
+			{activeTab === "active-rentals" && (
+				<div>
+					{activeRentalsLoading ? (
+						<div className='flex justify-center py-12'>
+							<div className='animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary'></div>
+						</div>
+					) : activeRentals.length > 0 ? (
+						<div className='space-y-4'>
+							{activeRentals.map((rental) => {
+								const isUrgent = rental.daysRemaining <= 3;
+								const isOverdue = rental.daysRemaining < 0;
+
+								return (
+									<div
+										key={rental.bookId}
+										className='group bg-white rounded-xl shadow-md hover:shadow-lg overflow-hidden border border-gray-200 hover:border-primary/30 transition-all duration-200'
+									>
+										<div className='p-6'>
+											<div className='flex gap-6'>
+												<div
+													onClick={() => navigate(`/book/${rental.bookId}`)}
+													className='cursor-pointer'
+												>
+													<div className='w-24 h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden'>
+														<span className='text-4xl'>📚</span>
+													</div>
+												</div>
+												<div className='flex-1'>
+													<div className='flex justify-between items-start mb-3'>
+														<div>
+															<h3
+																onClick={() => navigate(`/book/${rental.bookId}`)}
+																className='text-xl font-bold text-gray-900 mb-1 cursor-pointer hover:text-primary transition-colors'
+															>
+																{rental.title}
+															</h3>
+															<p className='text-sm text-gray-600 mb-2'>{rental.author}</p>
+															<p className='text-xs text-gray-500'>{rental.publisher}</p>
+														</div>
+														<div
+															className={`px-3 py-1 rounded-full text-xs font-semibold ${
+																isOverdue
+																	? "bg-red-500 text-white"
+																	: isUrgent
+																	? "bg-orange-500 text-white"
+																	: "bg-primary-light text-white"
+															}`}
+														>
+															{isOverdue
+																? `연체 ${Math.abs(rental.daysRemaining)}일`
+																: `D-${rental.daysRemaining}`}
+														</div>
+													</div>
+													<div className='grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg'>
+														<div>
+															<div className='text-xs text-gray-500 mb-1'>대여일</div>
+															<div className='text-sm font-medium text-gray-900'>
+																{new Date(rental.startDate).toLocaleDateString("ko-KR")}
+															</div>
+														</div>
+														<div>
+															<div className='text-xs text-gray-500 mb-1'>반납 예정일</div>
+															<div
+																className={`text-sm font-medium ${
+																	isOverdue
+																		? "text-red-600"
+																		: isUrgent
+																		? "text-orange-600"
+																		: "text-gray-900"
+																}`}
+															>
+																{new Date(rental.dueDate).toLocaleDateString("ko-KR")}
+															</div>
+														</div>
+													</div>
+													<button
+														onClick={(e) => handleReturnRental(rental.rentalId || rental.id, e)}
+														className='w-full px-4 py-2.5 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md'
+													>
+														반납하기
+													</button>
+												</div>
+											</div>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						<div className='text-center py-16 bg-gray-50 rounded-lg border border-dashed border-gray-300'>
+							<div className='text-5xl mb-3 opacity-50'>📖</div>
+							<p className='text-base font-semibold text-gray-700 mb-1'>
+								현재 대여 중인 책이 없습니다
+							</p>
+							<p className='text-sm text-gray-500'>원하는 책을 대여해보세요</p>
+						</div>
+					)}
+				</div>
+			)}
+
+			{/* 대여 이력 탭 */}
 			{activeTab === "rented" && (
 				<div>
 					{rentedBooks.length > 0 ? (

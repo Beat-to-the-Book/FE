@@ -3,7 +3,9 @@ import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, Stage } from "@react-three/drei";
 import { DoubleSide, TextureLoader } from "three";
 import * as THREE from "three";
-import { purchaseAPI, rentalAPI } from "../lib/api/purchase";
+import { purchaseAPI } from "../lib/api/purchase";
+import { rentalAPI } from "../lib/api/rental";
+import { pointsAPI } from "../lib/api/points";
 import useBookshelfStore from "../lib/store/bookshelfStore";
 
 const FLOOR_MIN = 1;
@@ -336,6 +338,17 @@ export default function BookshelfPage() {
 	const [books, setBooks] = useState([]);
 	const [booksLoading, setBooksLoading] = useState(true);
 
+	// 포인트 관련 상태
+	const [points, setPoints] = useState(0);
+	const [pointsLoading, setPointsLoading] = useState(true);
+
+	// 장식품 가격
+	const DECO_PRICES = {
+		1: 10, // 1번 장식
+		2: 20, // 피규어
+		3: 10, // 별 장식
+	};
+
 	// 컴포넌트 마운트 시 책장 데이터와 책 데이터 로드
 	useEffect(() => {
 		// 책장 장식품 데이터 로드
@@ -360,7 +373,29 @@ export default function BookshelfPage() {
 				console.error("책 데이터 로드 실패:", error);
 				setBooksLoading(false);
 			});
+
+		// 포인트 조회
+		pointsAPI
+			.getMyPoints()
+			.then((response) => {
+				setPoints(response.data.totalPoints || 0);
+				setPointsLoading(false);
+			})
+			.catch((error) => {
+				console.error("포인트 조회 실패:", error);
+				setPointsLoading(false);
+			});
 	}, [loadBookshelfData]);
+
+	// 포인트 새로고침 함수
+	const refreshPoints = async () => {
+		try {
+			const response = await pointsAPI.getMyPoints();
+			setPoints(response.data.totalPoints || 0);
+		} catch (error) {
+			console.error("포인트 조회 실패:", error);
+		}
+	};
 
 	// MiniGamePage 비율(1.5:1:0.2)을 축소 적용 + 90도 회전 후 가로 길이(BOOK_DEPTH) 기준 간격
 	const BOOK_HEIGHT = 0.6;
@@ -587,6 +622,16 @@ export default function BookshelfPage() {
 				</div>
 			</div>
 
+			{/* 포인트 표시 */}
+			<div className='absolute top-3 right-20 z-10'>
+				<div className='px-4 py-2 rounded-full bg-white shadow flex items-center gap-2'>
+					<span className='text-yellow-500 text-lg'>⭐</span>
+					<span className='text-gray-700 font-semibold'>
+						{pointsLoading ? "로딩..." : `${points}P`}
+					</span>
+				</div>
+			</div>
+
 			{/* 도움말 */}
 			{showHelp && (
 				<div className='absolute top-14 left-1/2 -translate-x-1/2 z-10 w-[340px] p-3 bg-white rounded-lg shadow text-xs text-gray-700'>
@@ -721,8 +766,21 @@ export default function BookshelfPage() {
 					별
 				</button>
 				<button
-					className='px-3 py-1 rounded-full text-sm bg-amber-200 hover:bg-amber-300'
-					onClick={() => {
+					className={`px-3 py-1 rounded-full text-sm ${
+						points >= DECO_PRICES[selectedDeco]
+							? "bg-amber-200 hover:bg-amber-300"
+							: "bg-gray-300 text-gray-500 cursor-not-allowed"
+					}`}
+					disabled={points < DECO_PRICES[selectedDeco]}
+					onClick={async () => {
+						const price = DECO_PRICES[selectedDeco];
+						if (points < price) {
+							alert(`포인트가 부족합니다.\n필요한 포인트: ${price}P\n현재 포인트: ${points}P`);
+							return;
+						}
+
+						// 포인트 차감 (백엔드에서 처리할 수도 있지만, 일단 프론트엔드에서만 처리)
+						// 실제로는 구매 API를 호출해야 할 수 있음
 						const id = Date.now();
 						const color =
 							selectedDeco === 1 ? "#ff7eb3" : selectedDeco === 2 ? "#7ec8ff" : "#8affc1";
@@ -740,9 +798,12 @@ export default function BookshelfPage() {
 								},
 							],
 						}));
+
+						// 포인트 차감 (실제로는 백엔드 API를 호출해야 할 수 있음)
+						setPoints((prev) => prev - price);
 					}}
 				>
-					배치하기
+					배치하기 ({DECO_PRICES[selectedDeco]}P)
 				</button>
 			</div>
 

@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import * as CANNON from "cannon";
 import { gameAPI } from "../lib/api/game";
+import { pointsAPI } from "../lib/api/points";
 
 const MiniGamePage = () => {
 	const mountRef = useRef(null);
@@ -460,6 +461,21 @@ const MiniGamePage = () => {
 					if (insideShelfTimeRef.current >= 1) {
 						successRef.current = true;
 						setSuccess(true);
+
+						// 성공 시 포인트 획득 API 호출
+						if (bookData && bookData.id) {
+							pointsAPI
+								.throwBook({
+									bookId: bookData.id,
+									success: true,
+								})
+								.then(() => {
+									console.log("포인트 1점 획득!");
+								})
+								.catch((error) => {
+									console.error("포인트 획득 실패:", error);
+								});
+						}
 					}
 				} else {
 					insideShelfTimeRef.current = 0;
