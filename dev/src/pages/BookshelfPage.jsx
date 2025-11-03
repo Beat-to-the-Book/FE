@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { purchaseAPI } from "../lib/api/purchase";
 import { rentalAPI } from "../lib/api/rental";
 import { pointsAPI } from "../lib/api/points";
+import { bookAPI } from "../lib/api/book";
 import useBookshelfStore from "../lib/store/bookshelfStore";
 
 const FLOOR_MIN = 1;
@@ -355,24 +356,74 @@ export default function BookshelfPage() {
 		loadBookshelfData();
 
 		// 책 데이터 로드
-		Promise.all([purchaseAPI.getHistory(), rentalAPI.getHistory()])
-			.then(([purchaseRes, rentalRes]) => {
-				const purchases = (purchaseRes.data || []).map((book) => ({
-					...book,
-					color: "#8b4513", // 기본 갈색
-				}));
+		const loadBooks = async () => {
+			try {
+				const [purchaseRes, rentalRes] = await Promise.all([
+					purchaseAPI.getHistory(),
+					rentalAPI.getHistory(),
+				]);
+
+				// purchase history에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
+				// purchase/history의 id 필드는 bookId를 의미함
+				const purchasesWithImages = await Promise.all(
+					(purchaseRes.data || []).map(async (book) => {
+						const bookId = book.bookId || book.id; // purchase/history의 id는 bookId
+						// 이미 이미지 URL이 있으면 그대로 사용
+						if (book.frontCoverImageUrl) {
+							return {
+								...book,
+								id: bookId, // id를 bookId로 사용
+								bookId: bookId,
+								color: "#8b4513",
+							};
+						}
+						// 없으면 bookId로 책 상세 정보 가져오기
+						try {
+							if (bookId) {
+								const bookDetail = await bookAPI.getById(bookId);
+								return {
+									...book,
+									id: bookId, // id를 bookId로 사용
+									bookId: bookId,
+									title: book.bookTitle || book.title || bookDetail.data.title,
+									frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
+									backCoverImageUrl: bookDetail.data.backCoverImageUrl,
+									leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
+									author: bookDetail.data.author || book.author,
+									publisher: bookDetail.data.publisher || book.publisher,
+									color: "#8b4513",
+								};
+							}
+						} catch (error) {
+							console.error(`책 ${bookId} 정보 가져오기 실패:`, error);
+						}
+						return {
+							...book,
+							id: bookId, // id를 bookId로 사용
+							bookId: bookId,
+							color: "#8b4513",
+						};
+					})
+				);
+
+				// rental history는 이미지 URL이 있으므로 그대로 사용 (필드명 확인)
 				const rentals = (rentalRes.data || []).map((book) => ({
 					...book,
-					color: "#8b4513", // 기본 갈색
+					id: book.id || book.bookId,
+					title: book.title || book.bookTitle,
+					color: "#8b4513",
 				}));
-				const combined = [...purchases, ...rentals];
+
+				const combined = [...purchasesWithImages, ...rentals];
 				setBooks(combined);
 				setBooksLoading(false);
-			})
-			.catch((error) => {
+			} catch (error) {
 				console.error("책 데이터 로드 실패:", error);
 				setBooksLoading(false);
-			});
+			}
+		};
+
+		loadBooks();
 
 		// 포인트 조회
 		pointsAPI

@@ -16,9 +16,11 @@ const removeDuplicates = (books, dateField) => {
 	const uniqueBooks = new Map();
 
 	books.forEach((book) => {
-		const existingBook = uniqueBooks.get(book.id);
+		// purchase/history의 id는 bookId를 의미
+		const bookId = book.bookId || book.id;
+		const existingBook = uniqueBooks.get(bookId);
 		if (!existingBook || new Date(book[dateField]) > new Date(existingBook[dateField])) {
-			uniqueBooks.set(book.id, book);
+			uniqueBooks.set(bookId, book);
 		}
 	});
 
@@ -69,13 +71,75 @@ const MyPage = () => {
 					pointsAPI.getMyPoints().catch(() => ({ data: { totalPoints: 0 } })),
 				]);
 
+				// purchase history에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
+				// purchase/history의 id 필드는 bookId를 의미함
+				const purchasedWithImages = await Promise.all(
+					purchasedResponse.data.map(async (purchase) => {
+						// 이미 이미지 URL이 있으면 그대로 사용
+						if (purchase.frontCoverImageUrl) {
+							return {
+								...purchase,
+								bookId: purchase.bookId || purchase.id, // id를 bookId로 매핑
+							};
+						}
+						// 없으면 bookId(id)로 책 상세 정보 가져오기
+						try {
+							const bookId = purchase.bookId || purchase.id; // purchase/history의 id는 bookId
+							if (bookId) {
+								const bookDetail = await bookAPI.getById(bookId);
+								return {
+									...purchase,
+									bookId: bookId, // 명시적으로 bookId 설정
+									frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
+									backCoverImageUrl: bookDetail.data.backCoverImageUrl,
+									leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
+									author: bookDetail.data.author || purchase.author,
+									publisher: bookDetail.data.publisher || purchase.publisher,
+								};
+							}
+						} catch (error) {
+							console.error(`책 ${purchase.bookId || purchase.id} 정보 가져오기 실패:`, error);
+						}
+						return {
+							...purchase,
+							bookId: purchase.bookId || purchase.id, // id를 bookId로 매핑
+						};
+					})
+				);
+
+				// active rentals에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
+				const activeRentalsWithImages = await Promise.all(
+					(activeRentalsResponse.data || []).map(async (rental) => {
+						// 이미 이미지 URL이 있으면 그대로 사용
+						if (rental.frontCoverImageUrl) {
+							return rental;
+						}
+						// 없으면 bookId로 책 상세 정보 가져오기
+						try {
+							const bookId = rental.bookId;
+							if (bookId) {
+								const bookDetail = await bookAPI.getById(bookId);
+								return {
+									...rental,
+									frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
+									backCoverImageUrl: bookDetail.data.backCoverImageUrl,
+									leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
+								};
+							}
+						} catch (error) {
+							console.error(`책 ${rental.bookId} 정보 가져오기 실패:`, error);
+						}
+						return rental;
+					})
+				);
+
 				// 중복 제거 및 최신 기록만 유지
-				const uniquePurchasedBooks = removeDuplicates(purchasedResponse.data, "purchaseDate");
+				const uniquePurchasedBooks = removeDuplicates(purchasedWithImages, "purchaseDate");
 				const uniqueRentedBooks = removeDuplicates(rentedResponse.data, "rentalDate");
 
 				setPurchasedBooks(uniquePurchasedBooks);
 				setRentedBooks(uniqueRentedBooks);
-				setActiveRentals(activeRentalsResponse.data || []);
+				setActiveRentals(activeRentalsWithImages);
 				setMyReports(reportsResponse.data);
 				setPoints(pointsResponse.data?.totalPoints || 0);
 				setPointsLoading(false);
@@ -111,7 +175,10 @@ const MyPage = () => {
 			try {
 				setReviewsLoading(true);
 				// 모든 구매한 책의 리뷰를 가져옴
-				const reviewPromises = purchasedBooks.map((book) => reviewAPI.getBookReviews(book.id));
+				// purchase/history의 id는 bookId를 의미
+				const reviewPromises = purchasedBooks.map((book) =>
+					reviewAPI.getBookReviews(book.bookId || book.id)
+				);
 				const reviewResponses = await Promise.all(reviewPromises);
 
 				// 내가 작성한 리뷰만 필터링
@@ -143,7 +210,10 @@ const MyPage = () => {
 			await reviewAPI.delete(reviewId);
 			alert("리뷰가 삭제되었습니다.");
 			// 리뷰 목록 새로고침
-			const reviewPromises = purchasedBooks.map((book) => reviewAPI.getBookReviews(book.id));
+			// purchase/history의 id는 bookId를 의미
+			const reviewPromises = purchasedBooks.map((book) =>
+				reviewAPI.getBookReviews(book.bookId || book.id)
+			);
 			const reviewResponses = await Promise.all(reviewPromises);
 			const myReviews = reviewResponses
 				.flatMap((response) => response.data.reviews)
@@ -171,9 +241,14 @@ const MyPage = () => {
 
 	const handleAddReading = async (data) => {
 		try {
-			// 선택한 책 정보 찾기
-			const selectedBook = allBooks.find((book) => book.id === parseInt(data.bookId));
-			await readingAPI.add(data, selectedBook);
+			// 프론트에서 {bookId, startDate, endDate, memo}만 전송
+			// 백엔드에서 book 정보를 포함하여 반환
+			await readingAPI.add({
+				bookId: parseInt(data.bookId),
+				startDate: data.startDate,
+				endDate: data.endDate,
+				memo: data.memo,
+			});
 			alert("독서 기록이 추가되었습니다.");
 			setIsModalOpen(false);
 			// 기록 새로고침
@@ -181,7 +256,14 @@ const MyPage = () => {
 			setReadingRecords(response.data);
 		} catch (error) {
 			console.error("독서 기록 추가 실패:", error);
-			alert("독서 기록 추가에 실패했습니다.");
+			if (error.response?.status === 401) {
+				alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+				navigate("/login");
+			} else {
+				alert(
+					`독서 기록 추가에 실패했습니다: ${error.response?.data?.message || "알 수 없는 오류"}`
+				);
+			}
 		}
 	};
 
@@ -232,9 +314,34 @@ const MyPage = () => {
 				rentalAPI.getHistory(),
 				rentalAPI.getActive().catch(() => ({ data: [] })),
 			]);
+
+			// active rentals에 이미지 URL 추가
+			const activeRentalsWithImages = await Promise.all(
+				(activeRentalsResponse.data || []).map(async (rental) => {
+					if (rental.frontCoverImageUrl) {
+						return rental;
+					}
+					try {
+						const bookId = rental.bookId;
+						if (bookId) {
+							const bookDetail = await bookAPI.getById(bookId);
+							return {
+								...rental,
+								frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
+								backCoverImageUrl: bookDetail.data.backCoverImageUrl,
+								leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
+							};
+						}
+					} catch (error) {
+						console.error(`책 ${rental.bookId} 정보 가져오기 실패:`, error);
+					}
+					return rental;
+				})
+			);
+
 			const uniqueRentedBooks = removeDuplicates(rentedResponse.data, "rentalDate");
 			setRentedBooks(uniqueRentedBooks);
-			setActiveRentals(activeRentalsResponse.data || []);
+			setActiveRentals(activeRentalsWithImages);
 		} catch (error) {
 			console.error("반납 에러:", error);
 			if (error.response?.status === 401) {
@@ -280,8 +387,10 @@ const MyPage = () => {
 	};
 
 	// 구매한 책 + 대여한 책 목록 (중복 제거)
+	// purchase/history의 id는 bookId를 의미
 	const allBooks = [...purchasedBooks, ...rentedBooks].filter(
-		(book, index, self) => index === self.findIndex((b) => b.id === book.id)
+		(book, index, self) =>
+			index === self.findIndex((b) => (b.bookId || b.id) === (book.bookId || book.id))
 	);
 
 	if (loading) {
@@ -477,16 +586,7 @@ const MyPage = () => {
 				>
 					⭐ 내 리뷰
 				</button>
-				<button
-					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
-						activeTab === "achievements"
-							? "bg-white text-primary shadow-sm"
-							: "text-gray-600 hover:text-primary hover:bg-white/50"
-					}`}
-					onClick={() => setActiveTab("achievements")}
-				>
-					🏆 도전과제
-				</button>
+
 				<button
 					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
 						activeTab === "purchased"
@@ -521,6 +621,16 @@ const MyPage = () => {
 					onClick={() => setActiveTab("rented")}
 				>
 					🔖 대여 이력
+				</button>
+				<button
+					className={`flex-1 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 whitespace-nowrap ${
+						activeTab === "achievements"
+							? "bg-white text-primary shadow-sm"
+							: "text-gray-600 hover:text-primary hover:bg-white/50"
+					}`}
+					onClick={() => setActiveTab("achievements")}
+				>
+					🏆 도전과제
 				</button>
 			</div>
 
@@ -839,9 +949,17 @@ const MyPage = () => {
 													onClick={() => navigate(`/book/${rental.bookId}`)}
 													className='cursor-pointer'
 												>
-													<div className='w-24 h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden'>
-														<span className='text-4xl'>📚</span>
-													</div>
+													{rental.frontCoverImageUrl ? (
+														<img
+															src={rental.frontCoverImageUrl}
+															alt={rental.title}
+															className='w-24 h-32 object-cover rounded-lg shadow-sm'
+														/>
+													) : (
+														<div className='w-24 h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden'>
+															<span className='text-4xl'>📚</span>
+														</div>
+													)}
 												</div>
 												<div className='flex-1'>
 													<div className='flex justify-between items-start mb-3'>
