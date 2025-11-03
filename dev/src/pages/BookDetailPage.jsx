@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
-import { purchaseAPI, rentalAPI } from "../lib/api/purchase";
+import { purchaseAPI } from "../lib/api/purchase";
+import { rentalAPI } from "../lib/api/rental";
 import { reportAPI } from "../lib/api/report";
 import { reviewAPI } from "../lib/api/review";
 import useAuthStore from "../lib/store/authStore";
@@ -203,7 +204,6 @@ const BookDetailPage = () => {
 
 		try {
 			await rentalAPI.add({
-				userId,
 				bookId: parseInt(bookId),
 			});
 			alert("대여가 완료되었습니다.");

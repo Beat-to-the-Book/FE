@@ -13,6 +13,7 @@ const useBehaviorStore = create(
 				bookId: null,
 				stayTime: 0,
 				scrollDepth: 0,
+				timestamp: null,
 			},
 
 			// 추천 책 가져오기
@@ -30,11 +31,13 @@ const useBehaviorStore = create(
 
 			// 행동 로그 초기화
 			initBehavior: (bookId) => {
+				const timestamp = new Date().toISOString().slice(0, 19);
 				set({
 					currentBehavior: {
 						bookId,
 						stayTime: 0,
 						scrollDepth: 0,
+						timestamp,
 					},
 				});
 			},
@@ -55,18 +58,26 @@ const useBehaviorStore = create(
 				const { currentBehavior } = state;
 				if (!currentBehavior.bookId) return;
 
-				// stayTime 1초 증가
+				// stayTime 1초 증가 및 타임스탬프 업데이트
+				const nextStayTime = currentBehavior.stayTime + 1;
+				const timestamp = new Date().toISOString().slice(0, 19);
 				set((state) => ({
 					currentBehavior: {
 						...state.currentBehavior,
-						stayTime: state.currentBehavior.stayTime + 1,
+						stayTime: nextStayTime,
+						timestamp,
 					},
 				}));
 
-				// 30초마다 백엔드로 전송
-				if (currentBehavior.stayTime % 30 === 0) {
+				// 30초마다 백엔드로 전송 (증가된 값 기준)
+				if (nextStayTime % 30 === 0) {
 					try {
-						await behaviorAPI.log(currentBehavior);
+						await behaviorAPI.log({
+							bookId: Number(currentBehavior.bookId),
+							stayTime: nextStayTime,
+							scrollDepth: currentBehavior.scrollDepth,
+							timestamp,
+						});
 					} catch (error) {
 						console.error("행동 로그 전송 실패:", error);
 					}
