@@ -9,6 +9,7 @@ const useBehaviorStore = create(
 			recommendedBooks: [],
 			loading: false,
 			error: null,
+			recentBooks: [], // 최근 본 책 목록 (최대 10개)
 			currentBehavior: {
 				bookId: null,
 				stayTime: 0,
@@ -40,6 +41,22 @@ const useBehaviorStore = create(
 						timestamp,
 					},
 				});
+			},
+
+			// 최근 본 책 추가
+			addRecentBook: (book) => {
+				set((state) => {
+					// 이미 있는 책은 제거
+					const filtered = state.recentBooks.filter((b) => b.id !== book.id);
+					// 최신 것을 맨 앞에 추가하고 최대 10개 유지
+					const updated = [book, ...filtered].slice(0, 10);
+					return { recentBooks: updated };
+				});
+			},
+
+			// 최근 본 책 목록 가져오기
+			getRecentBooks: (limit = 3) => {
+				return get().recentBooks.slice(0, limit);
 			},
 
 			// 스크롤 깊이 업데이트
@@ -88,6 +105,7 @@ const useBehaviorStore = create(
 			name: "behavior-storage",
 			partialize: (state) => ({
 				currentBehavior: state.currentBehavior,
+				recentBooks: state.recentBooks,
 			}),
 		}
 	)

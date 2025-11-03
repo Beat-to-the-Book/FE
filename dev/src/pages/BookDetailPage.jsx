@@ -54,7 +54,7 @@ const BookDetailPage = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const { isAuthenticated, userId } = useAuthStore();
-	const { initBehavior, updateScrollDepth, logBehavior } = useBehaviorStore();
+	const { initBehavior, updateScrollDepth, logBehavior, addRecentBook } = useBehaviorStore();
 	const timerRef = useRef(null);
 	const scrollTimerRef = useRef(null);
 	const { addItem } = useCartStore();
@@ -81,7 +81,17 @@ const BookDetailPage = () => {
 		const fetchBook = async () => {
 			try {
 				const response = await bookAPI.getById(bookId);
-				setBook(response.data);
+				const bookData = response.data;
+				setBook(bookData);
+				// 최근 본 책 목록에 추가
+				if (bookData) {
+					addRecentBook({
+						id: bookData.id,
+						title: bookData.title,
+						author: bookData.author,
+						frontCoverImageUrl: bookData.frontCoverImageUrl,
+					});
+				}
 			} catch (error) {
 				console.error("책 정보 조회 에러:", error);
 				if (error.response?.status === 404) {
@@ -95,7 +105,7 @@ const BookDetailPage = () => {
 		};
 
 		fetchBook();
-	}, [bookId]);
+	}, [bookId, addRecentBook]);
 
 	useEffect(() => {
 		const fetchReports = async () => {

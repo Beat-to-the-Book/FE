@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { bookAPI } from "../lib/api/book";
 import { useNavigate } from "react-router-dom";
 import useBehaviorStore from "../lib/store/behaviorStore";
-import RecommendedBooks from "../components/RecommendedBooks";
+import RecentBooks from "../components/RecentBooks";
 
 const ITEMS_PER_PAGE = 20; // 한 페이지당 보여줄 책의 개수
 
@@ -72,12 +72,6 @@ const HomePage = () => {
 		};
 
 		fetchBooks();
-
-		// 페이지 진입 시 행동 로그 전송
-		const logBehavior = async () => {
-			await useBehaviorStore.getState().logBehavior(null, 0, 0);
-		};
-		logBehavior();
 	}, []);
 
 	const handleBookClick = (bookId) => {
@@ -102,34 +96,152 @@ const HomePage = () => {
 
 	return (
 		<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-			{/* 메인 배너 */}
-			<div className='relative h-[400px] rounded-2xl overflow-hidden mb-12 bg-primary-dark'>
-				<div className='absolute inset-0 bg-[#023430]'></div>
+			{/* 메인 배너 - 추천 도서 섹션 */}
+			<div
+				onClick={() => navigate("/recommend")}
+				className='relative h-[500px] rounded-3xl overflow-hidden mb-12 cursor-pointer group'
+			>
+				{/* 그라데이션 배경 */}
+				<div className='absolute inset-0 bg-gradient-to-br from-primary-dark via-[#023430] to-primary/90'></div>
+
+				{/* 장식용 원형 요소들 - 애니메이션 */}
+				<div className='absolute top-1/4 right-1/4 w-96 h-96 bg-primary-light/20 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700'></div>
+				<div className='absolute bottom-1/4 left-1/4 w-72 h-72 bg-primary-light/15 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-700'></div>
+				<div className='absolute top-1/2 right-1/3 w-64 h-64 bg-secondary-light/10 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-700'></div>
+
+				{/* 콘텐츠 */}
 				<div className='absolute inset-0 flex items-center'>
-					<div className='text-white p-8 max-w-2xl relative z-10'>
-						<div className='space-y-4'>
-							<h1 className='text-5xl font-bold mb-4 leading-tight'>
-								당신의 독서 여정을
+					<div className='text-white p-8 md:p-12 max-w-3xl relative z-10'>
+						<div className='space-y-6'>
+							{/* 아이콘 및 배지 */}
+							<div className='flex items-center gap-3 mb-4'>
+								<div className='w-12 h-12 rounded-full bg-primary-light/20 backdrop-blur-sm flex items-center justify-center group-hover:rotate-12 transition-transform duration-300'>
+									<svg
+										className='w-6 h-6 text-primary-light'
+										fill='none'
+										stroke='currentColor'
+										viewBox='0 0 24 24'
+									>
+										<path
+											strokeLinecap='round'
+											strokeLinejoin='round'
+											strokeWidth={2}
+											d='M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'
+										/>
+									</svg>
+								</div>
+								<span className='px-4 py-1.5 bg-primary-light/20 backdrop-blur-sm rounded-full text-sm font-semibold text-primary-light border border-primary-light/30'>
+									맞춤 추천
+								</span>
+							</div>
+
+							<h1 className='text-5xl md:text-6xl font-bold mb-4 leading-tight'>
+								당신을 위한
 								<br />
-								<span className='text-primary-light'>공유</span>하세요
+								<span className='text-primary-light relative inline-block'>
+									<span className='relative z-10'>추천 도서</span>
+									<span className='absolute bottom-2 left-0 right-0 h-3 bg-primary-light/30 -z-0 transform -rotate-1'></span>
+								</span>
+								를 만나보세요
 							</h1>
-							<p className='text-xl text-gray-200'>
-								같은 책을 읽은 사람들과 이야기를 나누며 더 깊은 독서 경험을 만들어보세요.
+
+							<p className='text-xl md:text-2xl text-gray-100 leading-relaxed max-w-2xl'>
+								AI가 분석한 당신의 독서 취향과 관심사를 바탕으로
+								<br />
+								<span className='text-primary-light font-semibold'>5권의 맞춤 도서</span>와 추천
+								이유를 확인해보세요
 							</p>
-							<div className='flex gap-4 mt-6'>
+
+							<div className='flex flex-col sm:flex-row gap-4 mt-8'>
 								<button
-									onClick={() => navigate("/community")}
-									className='px-6 py-3 bg-primary-light text-primary-dark rounded-lg font-semibold hover:bg-secondary-light transition-all duration-300 hover:shadow-lg'
+									onClick={(e) => {
+										e.stopPropagation();
+										navigate("/recommend");
+									}}
+									className='group/btn px-8 py-4 bg-primary-light text-primary-dark rounded-xl font-bold text-lg hover:bg-secondary-light transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-1 flex items-center justify-center gap-2'
 								>
-									커뮤니티에서 이야기 나누기
+									<span>추천 도서 보기</span>
+									<svg
+										className='w-5 h-5 group-hover/btn:translate-x-1 transition-transform duration-300'
+										fill='none'
+										stroke='currentColor'
+										viewBox='0 0 24 24'
+									>
+										<path
+											strokeLinecap='round'
+											strokeLinejoin='round'
+											strokeWidth={2}
+											d='M13 7l5 5m0 0l-5 5m5-5H6'
+										/>
+									</svg>
 								</button>
+							</div>
+
+							{/* 특징 설명 */}
+							<div className='flex flex-wrap gap-4 mt-8 pt-6 border-t border-white/20'>
+								<div className='flex items-center gap-2 text-sm text-gray-200'>
+									<svg
+										className='w-5 h-5 text-primary-light'
+										fill='currentColor'
+										viewBox='0 0 20 20'
+									>
+										<path
+											fillRule='evenodd'
+											d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+											clipRule='evenodd'
+										/>
+									</svg>
+									<span>독서 패턴 분석</span>
+								</div>
+								<div className='flex items-center gap-2 text-sm text-gray-200'>
+									<svg
+										className='w-5 h-5 text-primary-light'
+										fill='currentColor'
+										viewBox='0 0 20 20'
+									>
+										<path
+											fillRule='evenodd'
+											d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+											clipRule='evenodd'
+										/>
+									</svg>
+									<span>맞춤 추천 이유 제공</span>
+								</div>
+								<div className='flex items-center gap-2 text-sm text-gray-200'>
+									<svg
+										className='w-5 h-5 text-primary-light'
+										fill='currentColor'
+										viewBox='0 0 20 20'
+									>
+										<path
+											fillRule='evenodd'
+											d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+											clipRule='evenodd'
+										/>
+									</svg>
+									<span>실시간 업데이트</span>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
-				{/* 장식용 원형 요소들 */}
-				<div className='absolute top-1/4 right-1/4 w-64 h-64 bg-primary-light/10 rounded-full blur-3xl'></div>
-				<div className='absolute bottom-1/4 left-1/4 w-48 h-48 bg-primary-light/15 rounded-full blur-2xl'></div>
+
+				{/* 화살표 아이콘 (우측 하단) */}
+				<div className='absolute bottom-8 right-8 w-16 h-16 rounded-full bg-primary-light/20 backdrop-blur-sm flex items-center justify-center border border-primary-light/30 group-hover:translate-x-2 transition-transform duration-300'>
+					<svg
+						className='w-8 h-8 text-primary-light'
+						fill='none'
+						stroke='currentColor'
+						viewBox='0 0 24 24'
+					>
+						<path
+							strokeLinecap='round'
+							strokeLinejoin='round'
+							strokeWidth={2}
+							d='M13 7l5 5m0 0l-5 5m5-5H6'
+						/>
+					</svg>
+				</div>
 			</div>
 
 			<div className='flex gap-8'>
@@ -212,7 +324,7 @@ const HomePage = () => {
 					)}
 				</div>
 				<div className='hidden xl:block fixed right-8 top-20 w-42'>
-					<RecommendedBooks layout='vertical' />
+					<RecentBooks layout='vertical' />
 				</div>
 			</div>
 		</div>

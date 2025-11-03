@@ -16,6 +16,7 @@ import ReportsPage from "./pages/ReportsPage";
 import WriteReportPage from "./pages/WriteReportPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import BookshelfPage from "./pages/BookshelfPage.jsx";
+import RecommendPage from "./pages/RecommendPage";
 
 function App() {
 	return (
@@ -39,6 +40,7 @@ function App() {
 					<Route path='/write-report' element={<WriteReportPage />} />
 					<Route path='/write-report/:bookId' element={<WriteReportPage />} />
 					<Route path='/bookshelf' element={<BookshelfPage />} />
+					<Route path='/recommend' element={<RecommendPage />} />
 				</Routes>
 			</Layout>
 		</Router>
