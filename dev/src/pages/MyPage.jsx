@@ -5,7 +5,7 @@ import { purchaseAPI } from "../lib/api/purchase";
 import { rentalAPI } from "../lib/api/rental";
 import { reportAPI } from "../lib/api/report";
 import { reviewAPI } from "../lib/api/review";
-import { readingAPI } from "../lib/api/reading";
+import { calendarAPI } from "../lib/api/calendar";
 import { pointsAPI } from "../lib/api/points";
 import useAuthStore from "../lib/store/authStore";
 import ReadingCalendar from "../components/ReadingCalendar";
@@ -42,40 +42,68 @@ const MyPage = () => {
 	const [reviewsLoading, setReviewsLoading] = useState(false);
 	const [reviewsError, setReviewsError] = useState("");
 	const [readingRecords, setReadingRecords] = useState([]);
+	const [monthlyReadingRecords, setMonthlyReadingRecords] = useState([]);
 	const [selectedDate, setSelectedDate] = useState(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingReading, setEditingReading] = useState(null);
 	const [points, setPoints] = useState(0);
 	const [pointsLoading, setPointsLoading] = useState(true);
+	const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+	const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth() + 1);
+
+	const handleMonthChange = useCallback((year, month) => {
+		setCalendarYear(year);
+		setCalendarMonth(month);
+	}, []);
 
 	const activeRentalKeys = useMemo(
-		() =>
-			new Set(
-				activeRentals.map(
-					(rental) => rental.rentalId || rental.id || rental.bookId
-				)
-			),
+		() => new Set(activeRentals.map((rental) => rental.rentalId || rental.id || rental.bookId)),
 		[activeRentals]
 	);
+
+	const uniqueReadBooksCount = useMemo(() => {
+		return new Set((readingRecords || []).map((record) => record.bookId)).size;
+	}, [readingRecords]);
+
+	const fetchAllCalendarRecords = useCallback(async () => {
+		try {
+			const response = await calendarAPI.getAll();
+			setReadingRecords(response.data || []);
+		} catch (error) {
+			console.error("독서 기록 전체 조회 실패:", error);
+		}
+	}, []);
+
+	const fetchMonthlyCalendarRecords = useCallback(async (year, month) => {
+		try {
+			const response = await calendarAPI.getByMonth(year, month);
+			const items = response.data?.items || [];
+			setMonthlyReadingRecords(items);
+		} catch (error) {
+			console.error("월별 독서 기록 조회 실패:", error);
+		}
+	}, []);
 
 	const enrichPurchasedBooks = useCallback(
 		async (purchases) =>
 			Promise.all(
 				(purchases || []).map(async (purchase) => {
+					const bookId = purchase.bookId || purchase.id;
+
 					if (purchase.frontCoverImageUrl) {
 						return {
 							...purchase,
-							bookId: purchase.bookId || purchase.id,
+							id: bookId,
+							bookId,
 						};
 					}
-
-					const bookId = purchase.bookId || purchase.id;
 
 					try {
 						if (bookId) {
 							const bookDetail = await bookAPI.getById(bookId);
 							return {
 								...purchase,
+								id: bookId,
 								bookId,
 								frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
 								backCoverImageUrl: bookDetail.data.backCoverImageUrl,
@@ -90,6 +118,7 @@ const MyPage = () => {
 
 					return {
 						...purchase,
+						id: bookId,
 						bookId,
 					};
 				})
@@ -173,19 +202,16 @@ const MyPage = () => {
 
 	// 독서 기록 조회
 	useEffect(() => {
-		const fetchReadingRecords = async () => {
-			try {
-				const response = await readingAPI.getMyReadings();
-				setReadingRecords(response.data);
-			} catch (error) {
-				console.error("독서 기록 조회 실패:", error);
-			}
-		};
-
 		if (isAuthenticated) {
-			fetchReadingRecords();
+			fetchAllCalendarRecords();
 		}
-	}, [isAuthenticated]);
+	}, [isAuthenticated, fetchAllCalendarRecords]);
+
+	useEffect(() => {
+		if (isAuthenticated) {
+			fetchMonthlyCalendarRecords(calendarYear, calendarMonth);
+		}
+	}, [isAuthenticated, calendarYear, calendarMonth, fetchMonthlyCalendarRecords]);
 
 	const fetchMyReviews = useCallback(async () => {
 		if (!isAuthenticated || purchasedBooks.length === 0) {
@@ -270,25 +296,34 @@ const MyPage = () => {
 	// 독서 기록 관련 함수들
 	const handleDateClick = (date) => {
 		setSelectedDate(date);
-		setIsModalOpen(true);
 		setEditingReading(null);
+		setIsModalOpen(true);
+	};
+
+	const handleReadingSelect = (reading) => {
+		if (!reading) {
+			return;
+		}
+
+		setSelectedDate(new Date(reading.startDate));
+		setEditingReading(reading);
+		setIsModalOpen(true);
 	};
 
 	const handleAddReading = async (data) => {
 		try {
-			// 프론트에서 {bookId, startDate, endDate, memo}만 전송
-			// 백엔드에서 book 정보를 포함하여 반환
-			await readingAPI.add({
-				bookId: parseInt(data.bookId),
+			await calendarAPI.create({
+				bookId: Number(data.bookId),
 				startDate: data.startDate,
 				endDate: data.endDate,
 				memo: data.memo,
 			});
 			alert("독서 기록이 추가되었습니다.");
 			setIsModalOpen(false);
-			// 기록 새로고침
-			const response = await readingAPI.getMyReadings();
-			setReadingRecords(response.data);
+			await Promise.all([
+				fetchAllCalendarRecords(),
+				fetchMonthlyCalendarRecords(calendarYear, calendarMonth),
+			]);
 		} catch (error) {
 			console.error("독서 기록 추가 실패:", error);
 			if (error.response?.status === 401) {
@@ -304,13 +339,18 @@ const MyPage = () => {
 
 	const handleUpdateReading = async (data) => {
 		try {
-			await readingAPI.update(editingReading.id, data);
+			await calendarAPI.update(editingReading.id, {
+				startDate: data.startDate,
+				endDate: data.endDate,
+				memo: data.memo,
+			});
 			alert("독서 기록이 수정되었습니다.");
 			setIsModalOpen(false);
 			setEditingReading(null);
-			// 기록 새로고침
-			const response = await readingAPI.getMyReadings();
-			setReadingRecords(response.data);
+			await Promise.all([
+				fetchAllCalendarRecords(),
+				fetchMonthlyCalendarRecords(calendarYear, calendarMonth),
+			]);
 		} catch (error) {
 			console.error("독서 기록 수정 실패:", error);
 			alert("독서 기록 수정에 실패했습니다.");
@@ -323,11 +363,12 @@ const MyPage = () => {
 		}
 
 		try {
-			await readingAPI.delete(readingId);
+			await calendarAPI.remove(readingId);
 			alert("독서 기록이 삭제되었습니다.");
-			// 기록 새로고침
-			const response = await readingAPI.getMyReadings();
-			setReadingRecords(response.data);
+			await Promise.all([
+				fetchAllCalendarRecords(),
+				fetchMonthlyCalendarRecords(calendarYear, calendarMonth),
+			]);
 		} catch (error) {
 			console.error("독서 기록 삭제 실패:", error);
 			alert("독서 기록 삭제에 실패했습니다.");
@@ -451,7 +492,7 @@ const MyPage = () => {
 				<h1 className='text-3xl font-bold text-gray-900'>마이페이지</h1>
 				{/* 포인트 표시 */}
 				<div className='flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-full border-2 border-yellow-200 shadow-md'>
-					<span className='text-yellow-500 text-xl'>⭐</span>
+					<span className='text-yellow-500 text-xl'>💰</span>
 					<span className='text-gray-800 font-bold text-lg'>
 						{pointsLoading ? "로딩..." : `${points}P`}
 					</span>
@@ -467,8 +508,8 @@ const MyPage = () => {
 							<span className='text-xl'>📚</span>
 						</div>
 					</div>
-					<div className='text-2xl font-bold text-primary'>{readingRecords.length}</div>
-					<p className='text-xs text-gray-500 mt-1'>독서 기록</p>
+					<div className='text-2xl font-bold text-primary'>{uniqueReadBooksCount}</div>
+					<p className='text-xs text-gray-500 mt-1'>읽은 도서 수</p>
 				</div>
 
 				<div className='bg-white rounded-lg shadow border border-gray-100 p-5 hover:shadow-md transition-shadow'>
@@ -510,9 +551,11 @@ const MyPage = () => {
 			{/* 독서 달력 */}
 			<div className='mb-10'>
 				<ReadingCalendar
-					readings={readingRecords}
+					readings={monthlyReadingRecords}
 					onDateClick={handleDateClick}
+					onRecordSelect={handleReadingSelect}
 					selectedDate={selectedDate}
+					onMonthChange={handleMonthChange}
 				/>
 
 				{/* 최근 독서 기록 (간략) */}
@@ -811,7 +854,7 @@ const MyPage = () => {
 			{activeTab === "achievements" && (
 				<div className='space-y-4'>
 					<div className='bg-white rounded-xl shadow-lg p-6 border border-gray-100'>
-						<h2 className='text-2xl font-bold text-gray-900 mb-6'>📚 읽은 책 권수 도전과제</h2>
+						<h2 className='text-2xl font-bold text-gray-900 mb-6'>📚 보유 책 권수 도전과제</h2>
 						<div className='space-y-4'>
 							{[
 								{ count: 10, points: 5 },
@@ -820,7 +863,7 @@ const MyPage = () => {
 								{ count: 40, points: 20 },
 								{ count: 50, points: 25 },
 							].map((achievement, index) => {
-								const completed = readingRecords.length >= achievement.count;
+								const completed = allBooks.length >= achievement.count;
 								return (
 									<div
 										key={index}
@@ -840,15 +883,15 @@ const MyPage = () => {
 											</div>
 											<div>
 												<div className='font-semibold text-gray-900'>
-													읽은 책 {achievement.count}권
+													보유 책 {achievement.count}권
 												</div>
 												<div className='text-sm text-gray-600'>
-													현재: {readingRecords.length}권 / {achievement.count}권
+													현재: {allBooks.length}권 / {achievement.count}권
 												</div>
 											</div>
 										</div>
 										<div className='flex items-center gap-2'>
-											<span className='text-yellow-500 text-lg'>⭐</span>
+											<span className='text-yellow-500 text-lg'>💰</span>
 											<span
 												className={`font-bold ${completed ? "text-green-600" : "text-gray-400"}`}
 											>
@@ -1080,13 +1123,9 @@ const MyPage = () => {
 								const isCurrentlyActive = activeRentalKeys.has(rentalKey);
 								const daysLeft =
 									isCurrentlyActive && book.returnDate
-										? Math.ceil(
-												(new Date(book.returnDate) - new Date()) /
-												  (1000 * 60 * 60 * 24)
-										  )
+										? Math.ceil((new Date(book.returnDate) - new Date()) / (1000 * 60 * 60 * 24))
 										: null;
-								const isOverdue =
-									isCurrentlyActive && typeof daysLeft === "number" && daysLeft < 0;
+								const isOverdue = isCurrentlyActive && typeof daysLeft === "number" && daysLeft < 0;
 								const isUrgent =
 									isCurrentlyActive &&
 									typeof daysLeft === "number" &&
@@ -1105,25 +1144,25 @@ const MyPage = () => {
 												alt={book.title}
 												className='w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300'
 											/>
-												<div
-													className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${
-														isCurrentlyActive
-															? isOverdue
-																? "bg-red-500 text-white"
-																: isUrgent
-																? "bg-orange-500 text-white"
-																: "bg-primary-light text-white"
-															: "bg-gray-200 text-gray-700"
-													}`}
-												>
-													{isCurrentlyActive
+											<div
+												className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${
+													isCurrentlyActive
 														? isOverdue
-															? "연체"
+															? "bg-red-500 text-white"
 															: isUrgent
-															? `D-${daysLeft}`
-															: "대여중"
-														: "반납완료"}
-												</div>
+															? "bg-orange-500 text-white"
+															: "bg-primary-light text-white"
+														: "bg-gray-200 text-gray-700"
+												}`}
+											>
+												{isCurrentlyActive
+													? isOverdue
+														? "연체"
+														: isUrgent
+														? `D-${daysLeft}`
+														: "대여중"
+													: "반납완료"}
+											</div>
 										</div>
 										<div className='p-4'>
 											<h3 className='font-bold text-base text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors'>
@@ -1149,15 +1188,15 @@ const MyPage = () => {
 												</div>
 												<div className='flex items-center gap-1.5'>
 													<svg
-															className={`w-4 h-4 ${
-																isCurrentlyActive
-																	? isOverdue
-																		? "text-red-500"
-																		: isUrgent
-																		? "text-orange-500"
-																		: "text-primary"
-																	: "text-gray-400"
-															}`}
+														className={`w-4 h-4 ${
+															isCurrentlyActive
+																? isOverdue
+																	? "text-red-500"
+																	: isUrgent
+																	? "text-orange-500"
+																	: "text-primary"
+																: "text-gray-400"
+														}`}
 														fill='none'
 														stroke='currentColor'
 														viewBox='0 0 24 24'
@@ -1169,28 +1208,22 @@ const MyPage = () => {
 															d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
 														/>
 													</svg>
-														<span
-															className={
-																isCurrentlyActive && isOverdue
-																	? "text-red-600 font-medium"
-																	: ""
-															}
-														>
-															{isCurrentlyActive
-																? `반납 예정: ${
-																		book.returnDate
-																			? new Date(
-																					book.returnDate
-																			  ).toLocaleDateString("ko-KR")
-																			: "-"
-																  }`
-																: `반납 완료: ${
-																		book.returnDate
-																			? new Date(
-																					book.returnDate
-																			  ).toLocaleDateString("ko-KR")
-																			: "-"
-																  }`}
+													<span
+														className={
+															isCurrentlyActive && isOverdue ? "text-red-600 font-medium" : ""
+														}
+													>
+														{isCurrentlyActive
+															? `반납 예정: ${
+																	book.returnDate
+																		? new Date(book.returnDate).toLocaleDateString("ko-KR")
+																		: "-"
+															  }`
+															: `반납 완료: ${
+																	book.returnDate
+																		? new Date(book.returnDate).toLocaleDateString("ko-KR")
+																		: "-"
+															  }`}
 													</span>
 												</div>
 											</div>

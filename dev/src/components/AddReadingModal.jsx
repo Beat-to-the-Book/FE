@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const AddReadingModal = ({
 	isOpen,
@@ -17,19 +17,26 @@ const AddReadingModal = ({
 
 	const [selectedBook, setSelectedBook] = useState(null);
 
+	const normalizedBooks = useMemo(
+		() =>
+			books.map((book) => ({
+				...book,
+				id: book.bookId || book.id,
+			})),
+		[books]
+	);
+
 	useEffect(() => {
 		if (editData) {
-			// 수정 모드
 			setFormData({
-				bookId: editData.bookId,
+				bookId: String(editData.bookId),
 				startDate: editData.startDate,
 				endDate: editData.endDate,
 				memo: editData.memo || "",
 			});
-			const book = books.find((b) => b.id === editData.bookId);
-			setSelectedBook(book);
+			const book = normalizedBooks.find((b) => b.id === editData.bookId);
+			setSelectedBook(book || null);
 		} else if (selectedDate) {
-			// 추가 모드
 			const dateStr = new Date(selectedDate).toISOString().split("T")[0];
 			setFormData({
 				bookId: "",
@@ -39,23 +46,23 @@ const AddReadingModal = ({
 			});
 			setSelectedBook(null);
 		}
-	}, [editData, selectedDate, books]);
+	}, [editData, selectedDate, normalizedBooks]);
 
-	const handleChange = (e) => {
-		const { name, value } = e.target;
+	const handleChange = (event) => {
+		const { name, value } = event.target;
 		setFormData((prev) => ({
 			...prev,
 			[name]: value,
 		}));
 
 		if (name === "bookId") {
-			const book = books.find((b) => b.id === parseInt(value));
-			setSelectedBook(book);
+			const book = normalizedBooks.find((b) => String(b.id) === value);
+			setSelectedBook(book || null);
 		}
 	};
 
-	const handleSubmit = (e) => {
-		e.preventDefault();
+	const handleSubmit = (event) => {
+		event.preventDefault();
 
 		if (!formData.bookId) {
 			alert("책을 선택해주세요.");
@@ -72,130 +79,178 @@ const AddReadingModal = ({
 			return;
 		}
 
-		onSubmit(formData);
+		onSubmit({
+			...formData,
+			bookId: Number(formData.bookId),
+		});
 	};
 
-	if (!isOpen) return null;
+	if (!isOpen) {
+		return null;
+	}
 
 	return (
-		<div className='fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn'>
-			<div className='bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl transform animate-slideUp border border-gray-100'>
-				<div className='flex items-center gap-3 mb-6 pb-4 border-b border-gray-100'>
-					<div className='w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white text-xl'>
-						📚
-					</div>
-					<h2 className='text-xl font-bold text-primary'>
-						{editData ? "독서 기록 수정" : "독서 기록 추가"}
-					</h2>
-				</div>
-
-				<form onSubmit={handleSubmit} className='space-y-4'>
-					{/* 책 선택 */}
-					<div>
-						<label className='block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5'>
-							<span className='text-primary'>📖</span>책 선택{" "}
-							<span className='text-red-500'>*</span>
-						</label>
-						<select
-							name='bookId'
-							value={formData.bookId}
-							onChange={handleChange}
-							className='w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light focus:border-primary transition-all duration-200 bg-white'
-							required
-							disabled={!!editData}
-						>
-							<option value=''>책을 선택하세요</option>
-							{books.map((book) => (
-								<option key={book.id} value={book.id}>
-									{book.title} - {book.author}
-								</option>
-							))}
-						</select>
-					</div>
-
-					{/* 선택된 책 미리보기 */}
-					{selectedBook && (
-						<div className='bg-primary/5 p-4 rounded-lg border border-primary/20 flex items-center gap-4'>
-							<img
-								src={selectedBook.frontCoverImageUrl}
-								alt={selectedBook.title}
-								className='w-16 h-24 object-cover rounded shadow-md'
-							/>
-							<div>
-								<h3 className='font-bold text-base text-gray-900 mb-1'>{selectedBook.title}</h3>
-								<p className='text-sm text-gray-600'>{selectedBook.author}</p>
-							</div>
-						</div>
-					)}
-
-					{/* 날짜 입력 그룹 */}
-					<div className='bg-gray-50 p-4 rounded-lg space-y-3 border border-gray-100'>
-						{/* 시작일 */}
+		<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 sm:px-6'>
+			<div className='relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 animate-slideUp'>
+				<div className='absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-primary/90 via-primary to-primary-dark blur-3xl opacity-20 pointer-events-none'></div>
+				<div className='relative p-7 sm:p-8 space-y-6'>
+					<div className='flex items-start justify-between'>
 						<div>
-							<label className='block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5'>
-								<span className='text-primary'>📅</span>
-								시작일 <span className='text-red-500'>*</span>
-							</label>
-							<input
-								type='date'
-								name='startDate'
-								value={formData.startDate}
-								onChange={handleChange}
-								className='w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light focus:border-primary transition-all duration-200 bg-white'
-								required
-							/>
+							<p className='text-sm font-medium text-primary-light'>
+								{selectedBook ? "선택한 책으로 기록 중" : "새 독서 기록 만들기"}
+							</p>
+							<h2 className='mt-1 text-2xl font-bold text-gray-900'>
+								{editData ? "독서 기록 수정" : "독서 기록 추가"}
+							</h2>
 						</div>
-
-						{/* 종료일 */}
-						<div>
-							<label className='block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5'>
-								<span className='text-primary'>🏁</span>
-								종료일 <span className='text-red-500'>*</span>
-							</label>
-							<input
-								type='date'
-								name='endDate'
-								value={formData.endDate}
-								onChange={handleChange}
-								className='w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light focus:border-primary transition-all duration-200 bg-white'
-								required
-							/>
-						</div>
-					</div>
-
-					{/* 메모 */}
-					<div>
-						<label className='block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5'>
-							<span className='text-primary'>✏️</span>
-							메모
-						</label>
-						<textarea
-							name='memo'
-							value={formData.memo}
-							onChange={handleChange}
-							rows='3'
-							className='w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-light focus:border-primary transition-all duration-200 bg-white resize-none'
-							placeholder='독서 소감이나 기억하고 싶은 내용을 적어보세요.'
-						/>
-					</div>
-
-					{/* 버튼 */}
-					<div className='flex gap-2 pt-2'>
 						<button
 							type='button'
 							onClick={onClose}
-							className='flex-1 px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-gray-700 transition-all duration-200'
+							className='flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-all hover:bg-gray-200 hover:text-gray-700'
+							aria-label='닫기'
 						>
-							취소
-						</button>
-						<button
-							type='submit'
-							className='flex-1 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium transition-all duration-200 shadow-sm hover:shadow-md'
-						>
-							{editData ? "수정" : "추가"}
+							✕
 						</button>
 					</div>
-				</form>
+
+					<form onSubmit={handleSubmit} className='space-y-6'>
+						<div className='grid gap-4'>
+							<label className='text-sm font-semibold text-gray-700 flex items-center gap-2'>
+								<span className='text-lg'>📙</span>
+								<span>책 선택</span>
+								<span className='text-xs font-medium text-primary-light'>필수</span>
+							</label>
+							<div className='relative'>
+								<select
+									name='bookId'
+									value={formData.bookId}
+									onChange={handleChange}
+									disabled={!!editData}
+									className='w-full appearance-none rounded-2xl border-2 border-gray-200 bg-gray-50 px-5 py-3 text-sm font-medium text-gray-800 shadow-inner transition-all hover:border-primary/50 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-gray-100'
+								>
+									<option value=''>어떤 책을 읽었나요?</option>
+									{normalizedBooks.map((book) => (
+										<option key={book.id} value={book.id}>
+											{book.title} · {book.author}
+										</option>
+									))}
+								</select>
+								<div className='pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-400'>
+									▾
+								</div>
+							</div>
+							{!selectedBook && (
+								<p className='text-xs text-gray-500'>
+									읽은 책을 선택하면 표지와 정보를 미리 볼 수 있어요.
+								</p>
+							)}
+						</div>
+
+						{selectedBook && (
+							<div className='flex gap-4 rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-inner'>
+								<div className='flex-shrink-0 overflow-hidden rounded-xl border border-white/60 shadow-lg'>
+									<img
+										src={selectedBook.frontCoverImageUrl}
+										alt={selectedBook.title}
+										className='h-28 w-20 object-cover'
+									/>
+								</div>
+								<div className='flex flex-1 flex-col justify-center gap-1.5'>
+									<p className='text-sm font-semibold text-primary line-clamp-2'>
+										{selectedBook.title}
+									</p>
+									<p className='text-xs text-gray-600'>{selectedBook.author}</p>
+									<div className='flex flex-wrap items-center gap-2 text-[11px] text-primary-dark/80'>
+										<span className='rounded-full bg-white/60 px-2 py-0.5 shadow-sm'>
+											📚 독서 진행 중
+										</span>
+										{formData.memo && (
+											<span className='rounded-full bg-white/60 px-2 py-0.5 shadow-sm'>
+												📝 메모 작성 중
+											</span>
+										)}
+									</div>
+								</div>
+							</div>
+						)}
+
+						<div className='grid gap-4 rounded-2xl border border-gray-200 bg-gray-50/60 p-5'>
+							<div className='flex items-center justify-between'>
+								<h3 className='text-sm font-semibold text-gray-700'>독서 기간</h3>
+								<span className='text-xs text-gray-500'>시작일과 종료일을 선택하세요</span>
+							</div>
+							<div className='grid gap-3 sm:grid-cols-2'>
+								<label className='flex flex-col gap-2 rounded-xl border border-transparent bg-white px-4 py-4 shadow-sm transition-all focus-within:border-primary focus-within:shadow-md'>
+									<span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+										시작일
+									</span>
+									<input
+										type='date'
+										name='startDate'
+										value={formData.startDate}
+										onChange={handleChange}
+										className='w-full text-sm font-semibold text-gray-800 focus:outline-none'
+										required
+									/>
+								</label>
+								<label className='flex flex-col gap-2 rounded-xl border border-transparent bg-white px-4 py-4 shadow-sm transition-all focus-within:border-primary focus-within:shadow-md'>
+									<span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+										종료일
+									</span>
+									<input
+										type='date'
+										name='endDate'
+										value={formData.endDate}
+										onChange={handleChange}
+										className='w-full text-sm font-semibold text-gray-800 focus:outline-none'
+										required
+									/>
+								</label>
+							</div>
+						</div>
+
+						<div className='space-y-2'>
+							<div className='flex items-center justify-between'>
+								<label className='text-sm font-semibold text-gray-700 flex items-center gap-1.5'>
+									<span className='text-lg'>📝</span>
+									<span>메모</span>
+								</label>
+								<span className='text-xs text-gray-400'>
+									{formData.memo.length} / 300
+								</span>
+							</div>
+							<textarea
+								name='memo'
+								value={formData.memo}
+								onChange={(event) => {
+									if (event.target.value.length > 300) {
+										return;
+									}
+									handleChange(event);
+								}}
+								rows={4}
+								className='w-full rounded-2xl border-2 border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 transition-all hover:border-primary/40 focus:border-primary focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/15 resize-none shadow-inner'
+								placeholder='이번 독서를 통해 느낀 점이나 기억하고 싶은 내용을 적어보세요.'
+							/>
+						</div>
+
+						<div className='flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end sm:gap-4'>
+							<button
+								type='button'
+								onClick={onClose}
+								className='w-full sm:w-auto rounded-2xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-100'
+							>
+								취소
+							</button>
+							<button
+								type='submit'
+								className='w-full sm:w-auto rounded-2xl bg-gradient-to-r from-primary to-primary-dark px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:translate-y-[-1px] hover:shadow-xl'
+							>
+								{editData ? "기록 업데이트" : "기록 추가하기"}
+							</button>
+						</div>
+					</form>
+				</div>
 			</div>
 		</div>
 	);

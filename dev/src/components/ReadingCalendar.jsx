@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const ReadingCalendar = ({ readings = [], onDateClick, selectedDate }) => {
+const ReadingCalendar = ({
+	readings = [],
+	onDateClick,
+	onRecordSelect,
+	selectedDate,
+	onMonthChange,
+}) => {
 	const [currentDate, setCurrentDate] = useState(new Date());
 
 	// 책별로 다른 색상 팔레트 (primary 계열)
@@ -34,6 +40,12 @@ const ReadingCalendar = ({ readings = [], onDateClick, selectedDate }) => {
 	};
 
 	const { year, month, daysInMonth, startingDayOfWeek } = getMonthData();
+
+	useEffect(() => {
+		if (onMonthChange) {
+			onMonthChange(year, month + 1);
+		}
+	}, [year, month, onMonthChange]);
 
 	// 날짜별 독서 기록 매핑
 	const getReadingsForDate = (date) => {
@@ -130,9 +142,14 @@ const ReadingCalendar = ({ readings = [], onDateClick, selectedDate }) => {
 						{dayReadings.slice(0, 2).map((reading, idx) => {
 							const colors = getColorForBook(reading.bookId);
 							return (
-								<div
+								<button
 									key={`${reading.id}-${idx}`}
-									className='text-[10px] px-1.5 py-1 rounded-md shadow-sm hover:shadow-md transition-shadow group/item'
+									type='button'
+									onClick={(event) => {
+										event.stopPropagation();
+										onRecordSelect?.(reading);
+									}}
+									className='w-full text-left text-[10px] px-1.5 py-1 rounded-md shadow-sm hover:shadow-lg transition-all group/item focus:outline-none focus:ring-2 focus:ring-primary/40'
 									style={{
 										backgroundColor: colors.bg,
 										borderLeft: `3px solid ${colors.border}`,
@@ -151,7 +168,7 @@ const ReadingCalendar = ({ readings = [], onDateClick, selectedDate }) => {
 											📖 {reading.bookTitle}
 										</span>
 									</div>
-								</div>
+								</button>
 							);
 						})}
 						{dayReadings.length > 2 && (
