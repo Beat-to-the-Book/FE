@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
 import { purchaseAPI } from "../lib/api/purchase";
@@ -47,6 +47,16 @@ const MyPage = () => {
 	const [editingReading, setEditingReading] = useState(null);
 	const [points, setPoints] = useState(0);
 	const [pointsLoading, setPointsLoading] = useState(true);
+
+	const activeRentalKeys = useMemo(
+		() =>
+			new Set(
+				activeRentals.map(
+					(rental) => rental.rentalId || rental.id || rental.bookId
+				)
+			),
+		[activeRentals]
+	);
 
 	const enrichPurchasedBooks = useCallback(
 		async (purchases) =>
@@ -1066,11 +1076,22 @@ const MyPage = () => {
 					{rentedBooks.length > 0 ? (
 						<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
 							{rentedBooks.map((book) => {
-								const daysLeft = Math.ceil(
-									(new Date(book.returnDate) - new Date()) / (1000 * 60 * 60 * 24)
-								);
-								const isOverdue = daysLeft < 0;
-								const isUrgent = daysLeft <= 3 && daysLeft >= 0;
+								const rentalKey = book.rentalId || book.id || book.bookId;
+								const isCurrentlyActive = activeRentalKeys.has(rentalKey);
+								const daysLeft =
+									isCurrentlyActive && book.returnDate
+										? Math.ceil(
+												(new Date(book.returnDate) - new Date()) /
+												  (1000 * 60 * 60 * 24)
+										  )
+										: null;
+								const isOverdue =
+									isCurrentlyActive && typeof daysLeft === "number" && daysLeft < 0;
+								const isUrgent =
+									isCurrentlyActive &&
+									typeof daysLeft === "number" &&
+									daysLeft <= 3 &&
+									daysLeft >= 0;
 
 								return (
 									<div
@@ -1084,17 +1105,25 @@ const MyPage = () => {
 												alt={book.title}
 												className='w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300'
 											/>
-											<div
-												className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${
-													isOverdue
-														? "bg-red-500 text-white"
-														: isUrgent
-														? "bg-orange-500 text-white"
-														: "bg-primary-light text-white"
-												}`}
-											>
-												{isOverdue ? "연체" : isUrgent ? `D-${daysLeft}` : "대여중"}
-											</div>
+												<div
+													className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${
+														isCurrentlyActive
+															? isOverdue
+																? "bg-red-500 text-white"
+																: isUrgent
+																? "bg-orange-500 text-white"
+																: "bg-primary-light text-white"
+															: "bg-gray-200 text-gray-700"
+													}`}
+												>
+													{isCurrentlyActive
+														? isOverdue
+															? "연체"
+															: isUrgent
+															? `D-${daysLeft}`
+															: "대여중"
+														: "반납완료"}
+												</div>
 										</div>
 										<div className='p-4'>
 											<h3 className='font-bold text-base text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors'>
@@ -1120,13 +1149,15 @@ const MyPage = () => {
 												</div>
 												<div className='flex items-center gap-1.5'>
 													<svg
-														className={`w-4 h-4 ${
-															isOverdue
-																? "text-red-500"
-																: isUrgent
-																? "text-orange-500"
-																: "text-primary"
-														}`}
+															className={`w-4 h-4 ${
+																isCurrentlyActive
+																	? isOverdue
+																		? "text-red-500"
+																		: isUrgent
+																		? "text-orange-500"
+																		: "text-primary"
+																	: "text-gray-400"
+															}`}
 														fill='none'
 														stroke='currentColor'
 														viewBox='0 0 24 24'
@@ -1138,8 +1169,28 @@ const MyPage = () => {
 															d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
 														/>
 													</svg>
-													<span className={isOverdue ? "text-red-600 font-medium" : ""}>
-														반납: {new Date(book.returnDate).toLocaleDateString("ko-KR")}
+														<span
+															className={
+																isCurrentlyActive && isOverdue
+																	? "text-red-600 font-medium"
+																	: ""
+															}
+														>
+															{isCurrentlyActive
+																? `반납 예정: ${
+																		book.returnDate
+																			? new Date(
+																					book.returnDate
+																			  ).toLocaleDateString("ko-KR")
+																			: "-"
+																  }`
+																: `반납 완료: ${
+																		book.returnDate
+																			? new Date(
+																					book.returnDate
+																			  ).toLocaleDateString("ko-KR")
+																			: "-"
+																  }`}
 													</span>
 												</div>
 											</div>
