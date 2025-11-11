@@ -49,6 +49,7 @@ const TEMP_BOOK_REPORTS = [
 
 const BookDetailPage = () => {
 	const { bookId } = useParams();
+	const bookIdNumber = Number(bookId);
 	const navigate = useNavigate();
 	const [book, setBook] = useState(null);
 	const [loading, setLoading] = useState(true);
@@ -72,12 +73,20 @@ const BookDetailPage = () => {
 	const [selectedReport, setSelectedReport] = useState(null);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [reviews, setReviews] = useState([]);
+	const [averageRating, setAverageRating] = useState(null);
 	const [reviewsLoading, setReviewsLoading] = useState(false);
 	const [reviewsError, setReviewsError] = useState("");
 	const [selectedReview, setSelectedReview] = useState(null);
 	const [isReviewEditModalOpen, setIsReviewEditModalOpen] = useState(false);
+	const userIdString = userId !== null && userId !== undefined ? String(userId) : null;
 
 	useEffect(() => {
+		if (Number.isNaN(bookIdNumber)) {
+			setError("잘못된 책 정보입니다.");
+			setLoading(false);
+			return;
+		}
+
 		const fetchBook = async () => {
 			try {
 				const response = await bookAPI.getById(bookId);
@@ -105,7 +114,7 @@ const BookDetailPage = () => {
 		};
 
 		fetchBook();
-	}, [bookId, addRecentBook]);
+	}, [bookId, bookIdNumber, addRecentBook]);
 
 	useEffect(() => {
 		const fetchReports = async () => {
@@ -143,7 +152,7 @@ const BookDetailPage = () => {
 		if (activeTab === "reports") {
 			fetchReports();
 		}
-	}, [bookId, activeTab, isAuthenticated]);
+	}, [bookIdNumber, activeTab, isAuthenticated]);
 
 	useEffect(() => {
 		// 행동 로깅 초기화
@@ -181,29 +190,48 @@ const BookDetailPage = () => {
 		};
 	}, [bookId, initBehavior, updateScrollDepth, logBehavior]);
 
-	useEffect(() => {
-		const fetchReviews = async () => {
-			try {
-				setReviewsLoading(true);
-				const response = await reviewAPI.getBookReviews(bookId);
-				setReviews(response.data.reviews);
-				setReviewsError("");
-			} catch (error) {
-				console.error("리뷰 조회 에러:", error);
-				if (error.response?.status === 404) {
-					setReviewsError("존재하지 않는 책입니다.");
-				} else {
-					setReviewsError("리뷰를 불러오는데 실패했습니다.");
-				}
-			} finally {
+useEffect(() => {
+	const fetchReviews = async () => {
+			if (Number.isNaN(bookIdNumber)) {
+				setReviews([]);
+				setAverageRating(null);
+				setReviewsError("잘못된 책 정보입니다.");
 				setReviewsLoading(false);
+				return;
 			}
-		};
 
-		if (activeTab === "reviews") {
-			fetchReviews();
+		if (!isAuthenticated) {
+			setReviews([]);
+			setAverageRating(null);
+			setReviewsError("리뷰는 로그인 후 확인할 수 있습니다.");
+			setReviewsLoading(false);
+			return;
 		}
-	}, [bookId, activeTab]);
+
+		try {
+			setReviewsLoading(true);
+			const response = await reviewAPI.getBookReviews(bookIdNumber);
+			setReviews(response.data.reviews || []);
+			setAverageRating(response.data.averageRating ?? null);
+			setReviewsError("");
+		} catch (error) {
+			console.error("리뷰 조회 에러:", error);
+			if (error.response?.status === 404) {
+				setReviewsError("존재하지 않는 책입니다.");
+			} else if (error.response?.status === 401) {
+				setReviewsError("로그인이 필요합니다.");
+			} else {
+				setReviewsError("리뷰를 불러오는데 실패했습니다.");
+			}
+		} finally {
+			setReviewsLoading(false);
+		}
+	};
+
+	if (activeTab === "reviews") {
+		fetchReviews();
+	}
+}, [bookIdNumber, activeTab, isAuthenticated]);
 
 	const handleRental = async () => {
 		if (!isAuthenticated) {
@@ -212,9 +240,14 @@ const BookDetailPage = () => {
 			return;
 		}
 
+		if (Number.isNaN(bookIdNumber)) {
+			alert("잘못된 책 정보입니다.");
+			return;
+		}
+
 		try {
 			await rentalAPI.add({
-				bookId: parseInt(bookId),
+				bookId: bookIdNumber,
 			});
 			alert("대여가 완료되었습니다.");
 		} catch (error) {
@@ -244,10 +277,15 @@ const BookDetailPage = () => {
 			return;
 		}
 
+		if (Number.isNaN(bookIdNumber)) {
+			alert("잘못된 책 정보입니다.");
+			return;
+		}
+
 		try {
 			// checkout으로 주문 생성
 			const checkoutResponse = await purchaseAPI.checkout({
-				bookId: parseInt(bookId),
+				bookId: bookIdNumber,
 				quantity: 1,
 			});
 
@@ -284,17 +322,23 @@ const BookDetailPage = () => {
 			return;
 		}
 
+		if (Number.isNaN(bookIdNumber)) {
+			alert("잘못된 책 정보입니다.");
+			return;
+		}
+
 		try {
 			await reviewAPI.create({
-				bookId: parseInt(bookId),
+				bookId: bookIdNumber,
 				rating: newReview.rating,
 				comment: newReview.comment,
 			});
 			alert("리뷰가 등록되었습니다.");
 			setNewReview({ rating: 5, comment: "" });
 			// 리뷰 목록 새로고침
-			const response = await reviewAPI.getBookReviews(bookId);
-			setReviews(response.data.reviews);
+			const response = await reviewAPI.getBookReviews(bookIdNumber);
+			setReviews(response.data.reviews || []);
+			setAverageRating(response.data.averageRating ?? null);
 		} catch (error) {
 			console.error("리뷰 등록 에러:", error);
 			if (error.response?.status === 401) {
@@ -314,9 +358,14 @@ const BookDetailPage = () => {
 			return;
 		}
 
+		if (Number.isNaN(bookIdNumber)) {
+			alert("잘못된 책 정보입니다.");
+			return;
+		}
+
 		try {
 			await reportAPI.create({
-				bookId: parseInt(bookId),
+				bookId: bookIdNumber,
 				content: newReport.content,
 				rating: newReport.rating,
 				publicVisible: newReport.publicVisible,
@@ -366,12 +415,18 @@ const BookDetailPage = () => {
 			return;
 		}
 
+		if (Number.isNaN(bookIdNumber)) {
+			alert("잘못된 책 정보입니다.");
+			return;
+		}
+
 		try {
 			await reviewAPI.delete(reviewId);
 			alert("리뷰가 삭제되었습니다.");
 			// 리뷰 목록 새로고침
-			const response = await reviewAPI.getBookReviews(bookId);
-			setReviews(response.data.reviews);
+			const response = await reviewAPI.getBookReviews(bookIdNumber);
+			setReviews(response.data.reviews || []);
+			setAverageRating(response.data.averageRating ?? null);
 		} catch (error) {
 			console.error("리뷰 삭제 에러:", error);
 			if (error.response?.status === 401) {
@@ -385,11 +440,41 @@ const BookDetailPage = () => {
 		}
 	};
 
-	const handleReviewEditSuccess = async () => {
+	const handleReviewEditSuccess = async (updatedReview) => {
+		if (updatedReview) {
+			setReviews((prevReviews) => {
+				const previous = Array.isArray(prevReviews) ? prevReviews : [];
+				const exists = previous.some((item) => item.reviewId === updatedReview.reviewId);
+				const nextReviews = exists
+					? previous.map((item) =>
+							item.reviewId === updatedReview.reviewId ? { ...item, ...updatedReview } : item
+					  )
+					: [...previous, updatedReview];
+
+				if (nextReviews.length > 0) {
+					const average =
+						nextReviews.reduce((sum, item) => sum + (Number(item.rating) || 0), 0) /
+						nextReviews.length;
+					const roundedAverage = Number(average.toFixed(1));
+					setAverageRating(Number.isNaN(roundedAverage) ? null : roundedAverage);
+				} else {
+					setAverageRating(null);
+				}
+
+				return nextReviews;
+			});
+			return;
+		}
+
+		if (Number.isNaN(bookIdNumber)) {
+			return;
+		}
+
 		try {
 			// 리뷰 목록 새로고침
-			const response = await reviewAPI.getBookReviews(bookId);
-			setReviews(response.data.reviews);
+			const response = await reviewAPI.getBookReviews(bookIdNumber);
+			setReviews(response.data.reviews || []);
+			setAverageRating(response.data.averageRating ?? null);
 		} catch (error) {
 			console.error("리뷰 목록 새로고침 에러:", error);
 		}
@@ -408,6 +493,8 @@ const BookDetailPage = () => {
 			console.error("독후감 목록 새로고침 에러:", error);
 		}
 	};
+
+const formattedAverageRating = averageRating !== null ? Number(averageRating).toFixed(1) : null;
 
 	if (loading) {
 		return (
@@ -553,6 +640,20 @@ const BookDetailPage = () => {
 					{/* 리뷰 탭 */}
 					{activeTab === "reviews" && (
 						<div className='space-y-8'>
+							{formattedAverageRating && (
+								<div className='bg-white border border-primary/20 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between shadow-sm'>
+									<div>
+										<div className='text-sm text-gray-500 mb-2'>평균 평점</div>
+										<div className='flex items-baseline gap-3'>
+											<span className='text-4xl font-bold text-primary'>{formattedAverageRating}</span>
+											<span className='text-sm text-gray-400'>/ 5.0</span>
+										</div>
+									</div>
+									<div className='mt-4 sm:mt-0 text-sm text-gray-500 font-medium'>
+										총 {reviews.length}개 리뷰
+									</div>
+								</div>
+							)}
 							{/* 리뷰 작성 폼 */}
 							<div className='bg-gray-50 rounded-xl p-6 border border-gray-200'>
 								<h3 className='text-lg font-semibold text-gray-900 mb-4'>리뷰 작성하기</h3>
@@ -604,50 +705,63 @@ const BookDetailPage = () => {
 									<div className='text-center py-8 text-gray-500'>아직 작성된 리뷰가 없습니다</div>
 								) : (
 									<div className='space-y-4'>
-										{reviews.map((review) => (
-											<div
-												key={review.reviewId}
-												className='bg-white border border-gray-200 rounded-xl p-5 hover:border-primary-light/30 transition-all'
-											>
-												<div className='flex justify-between items-start mb-3'>
-													<div className='flex items-center space-x-3'>
-														<div className='w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center'>
-															<span className='text-primary font-semibold'>{review.author[0]}</span>
-														</div>
-														<div>
-															<div className='font-semibold text-gray-900'>{review.author}</div>
-															<div className='text-sm text-gray-500'>{review.createdAt}</div>
-														</div>
-													</div>
-													<div className='flex items-center space-x-3'>
-														<div className='text-yellow-500 text-lg'>
-															{"★".repeat(review.rating)}
-															{"☆".repeat(5 - review.rating)}
-														</div>
-														{isAuthenticated && review.author === userId && (
-															<div className='flex space-x-2'>
-																<button
-																	onClick={() => {
-																		setSelectedReview(review);
-																		setIsReviewEditModalOpen(true);
-																	}}
-																	className='text-primary hover:text-primary-light font-medium text-sm'
-																>
-																	수정
-																</button>
-																<button
-																	onClick={() => handleDeleteReview(review.reviewId)}
-																	className='text-red-500 hover:text-red-600 font-medium text-sm'
-																>
-																	삭제
-																</button>
+										{reviews.map((review) => {
+											const ownerIdentifier =
+												review.userId ?? review.authorId ?? review.author ?? review.username;
+											const authorDisplay =
+												review.author ?? review.authorName ?? review.username ?? "익명";
+											const authorInitial = authorDisplay ? authorDisplay.charAt(0) : "?";
+											const isMyReview =
+												Boolean(userIdString) &&
+												ownerIdentifier !== undefined &&
+												ownerIdentifier !== null &&
+												String(ownerIdentifier) === userIdString;
+
+											return (
+												<div
+													key={review.reviewId}
+													className='bg-white border border-gray-200 rounded-xl p-5 hover:border-primary-light/30 transition-all'
+												>
+													<div className='flex justify-between items-start mb-3'>
+														<div className='flex items-center space-x-3'>
+															<div className='w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center'>
+																<span className='text-primary font-semibold'>{authorInitial}</span>
 															</div>
-														)}
+															<div>
+																<div className='font-semibold text-gray-900'>{authorDisplay}</div>
+																<div className='text-sm text-gray-500'>{review.createdAt}</div>
+															</div>
+														</div>
+														<div className='flex items-center space-x-3'>
+															<div className='text-yellow-500 text-lg'>
+																{"★".repeat(review.rating)}
+																{"☆".repeat(5 - review.rating)}
+															</div>
+															{isAuthenticated && isMyReview && (
+																<div className='flex space-x-2'>
+																	<button
+																		onClick={() => {
+																			setSelectedReview(review);
+																			setIsReviewEditModalOpen(true);
+																		}}
+																		className='text-primary hover:text-primary-light font-medium text-sm'
+																	>
+																		수정
+																	</button>
+																	<button
+																		onClick={() => handleDeleteReview(review.reviewId)}
+																		className='text-red-500 hover:text-red-600 font-medium text-sm'
+																	>
+																		삭제
+																	</button>
+																</div>
+															)}
+														</div>
 													</div>
+													<p className='text-gray-700 leading-relaxed'>{review.comment}</p>
 												</div>
-												<p className='text-gray-700 leading-relaxed'>{review.comment}</p>
-											</div>
-										))}
+											);
+										})}
 									</div>
 								)}
 							</div>
@@ -809,6 +923,7 @@ const BookDetailPage = () => {
 					setSelectedReview(null);
 				}}
 				review={selectedReview}
+				bookId={bookIdNumber}
 				onSuccess={handleReviewEditSuccess}
 			/>
 			{/* 독후감 수정 모달 */}

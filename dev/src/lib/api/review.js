@@ -1,8 +1,8 @@
-import { privateApi, publicApi } from "./axios";
+import { privateApi } from "./axios";
 
 export const reviewAPI = {
-	// 특정 책의 리뷰 조회
-	getBookReviews: (bookId) => publicApi.get(`/reviews/book/${bookId}`),
+	// 특정 책의 리뷰 조회 (토큰 필요)
+	getBookReviews: (bookId) => privateApi.get(`/reviews/book/${bookId}`),
 
 	// 리뷰 작성
 	create: (data) => privateApi.post("/reviews", data),

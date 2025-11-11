@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
 import { reviewAPI } from "../lib/api/review";
-import { useParams } from "react-router-dom";
 
-const EditReviewModal = ({ isOpen, onClose, review, onSuccess }) => {
-	const { bookId } = useParams();
+const EditReviewModal = ({ isOpen, onClose, review, onSuccess, bookId }) => {
 	const [formData, setFormData] = useState({
-		bookId: null,
 		rating: 5,
 		comment: "",
 	});
@@ -15,32 +12,51 @@ const EditReviewModal = ({ isOpen, onClose, review, onSuccess }) => {
 	useEffect(() => {
 		if (review) {
 			setFormData({
-				bookId: parseInt(bookId),
-				rating: review.rating,
-				comment: review.comment,
+				rating: review.rating ?? 5,
+				comment: review.comment ?? "",
 			});
+			setError("");
 		}
-	}, [review, bookId]);
+	}, [review]);
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
+		if (!review) return;
 		setLoading(true);
 		setError("");
 
 		try {
-			await reviewAPI.update(review.reviewId, {
-				bookId: parseInt(bookId),
+			const numericBookId = Number(bookId);
+			if (Number.isNaN(numericBookId)) {
+				setError("유효하지 않은 책 정보입니다.");
+				setLoading(false);
+				return;
+			}
+
+			const trimmedComment = formData.comment.trim();
+			if (!trimmedComment) {
+				setError("리뷰 내용을 입력해주세요.");
+				setLoading(false);
+				return;
+			}
+
+			const payload = {
+				bookId: numericBookId,
 				rating: formData.rating,
-				comment: formData.comment,
-			});
-			onSuccess();
+				comment: trimmedComment,
+			};
+
+			const response = await reviewAPI.update(review.reviewId, payload);
+
+			onSuccess(response?.data ?? null);
 			onClose();
 		} catch (error) {
 			console.error("리뷰 수정 에러:", error);
 			if (error.response?.status === 401) {
 				setError("로그인이 만료되었습니다. 다시 로그인해주세요.");
 			} else {
-				setError("리뷰 수정에 실패했습니다.");
+				const message = error.response?.data?.message;
+				setError(message || "리뷰 수정에 실패했습니다.");
 			}
 		} finally {
 			setLoading(false);
@@ -125,5 +141,3 @@ const EditReviewModal = ({ isOpen, onClose, review, onSuccess }) => {
 };
 
 export default EditReviewModal;
-
-// TODO: 리뷰 수정 적용 안 됨
