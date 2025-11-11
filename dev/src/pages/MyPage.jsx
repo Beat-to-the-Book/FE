@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
 import { purchaseAPI } from "../lib/api/purchase";
@@ -170,36 +170,62 @@ const MyPage = () => {
 		}
 	}, [isAuthenticated]);
 
-	useEffect(() => {
-		const fetchMyReviews = async () => {
-			try {
-				setReviewsLoading(true);
-				// 모든 구매한 책의 리뷰를 가져옴
-				// purchase/history의 id는 bookId를 의미
-				const reviewPromises = purchasedBooks.map((book) =>
-					reviewAPI.getBookReviews(book.bookId || book.id)
-				);
-				const reviewResponses = await Promise.all(reviewPromises);
-
-				// 내가 작성한 리뷰만 필터링
-				const myReviews = reviewResponses
-					.flatMap((response) => response.data.reviews)
-					.filter((review) => review.author === userId);
-
-				setMyReviews(myReviews);
-				setReviewsError("");
-			} catch (error) {
-				console.error("리뷰 조회 에러:", error);
-				setReviewsError("리뷰를 불러오는데 실패했습니다.");
-			} finally {
-				setReviewsLoading(false);
-			}
-		};
-
-		if (activeTab === "reviews" && purchasedBooks.length > 0) {
-			fetchMyReviews();
+	const fetchMyReviews = useCallback(async () => {
+		if (!isAuthenticated || purchasedBooks.length === 0) {
+			setMyReviews([]);
+			return;
 		}
-	}, [activeTab, purchasedBooks, userId]);
+
+		try {
+			setReviewsLoading(true);
+			const reviewResults = await Promise.all(
+				purchasedBooks.map(async (book) => {
+					const bookId = book.bookId || book.id;
+
+					try {
+						const response = await reviewAPI.getBookReviews(bookId);
+						return {
+							book,
+							reviews: response.data?.reviews || [],
+						};
+					} catch (error) {
+						console.error(`리뷰 조회 실패 (bookId: ${bookId})`, error);
+						return {
+							book,
+							reviews: [],
+						};
+					}
+				})
+			);
+
+			const myReviewsData = reviewResults.flatMap(({ book, reviews }) => {
+				const bookId = book.bookId || book.id;
+				const bookTitle = book.bookTitle || book.title;
+				const coverImage = book.frontCoverImageUrl;
+
+				return reviews
+					.filter((review) => review.author === userId)
+					.map((review) => ({
+						...review,
+						bookId,
+						bookTitle: review.bookTitle || bookTitle,
+						frontCoverImageUrl: review.frontCoverImageUrl || coverImage,
+					}));
+			});
+
+			setMyReviews(myReviewsData);
+			setReviewsError("");
+		} catch (error) {
+			console.error("리뷰 조회 에러:", error);
+			setReviewsError("리뷰를 불러오는데 실패했습니다.");
+		} finally {
+			setReviewsLoading(false);
+		}
+	}, [isAuthenticated, purchasedBooks, userId]);
+
+	useEffect(() => {
+		fetchMyReviews();
+	}, [fetchMyReviews]);
 
 	const handleDeleteReview = async (reviewId) => {
 		if (!window.confirm("정말로 이 리뷰를 삭제하시겠습니까?")) {
@@ -210,15 +236,7 @@ const MyPage = () => {
 			await reviewAPI.delete(reviewId);
 			alert("리뷰가 삭제되었습니다.");
 			// 리뷰 목록 새로고침
-			// purchase/history의 id는 bookId를 의미
-			const reviewPromises = purchasedBooks.map((book) =>
-				reviewAPI.getBookReviews(book.bookId || book.id)
-			);
-			const reviewResponses = await Promise.all(reviewPromises);
-			const myReviews = reviewResponses
-				.flatMap((response) => response.data.reviews)
-				.filter((review) => review.author === userId);
-			setMyReviews(myReviews);
+			await fetchMyReviews();
 		} catch (error) {
 			console.error("리뷰 삭제 에러:", error);
 			if (error.response?.status === 401) {
