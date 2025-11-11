@@ -133,6 +133,12 @@ const Header = () => {
 						</Link>
 						{isAuthenticated ? (
 							<>
+								<Link
+									to='/ranking'
+									className='text-gray-700 hover:text-primary font-medium transition-colors'
+								>
+									랭킹
+								</Link>
 								<div className='relative group'>
 									<button className='text-gray-700 hover:text-primary font-medium transition-colors'>
 										MY

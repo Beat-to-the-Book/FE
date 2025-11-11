@@ -1,104 +1,63 @@
 import { useState, useEffect } from "react";
-import { purchaseAPI } from "../lib/api/purchase";
-import { rentalAPI } from "../lib/api/rental";
-import { pointsAPI } from "../lib/api/points";
 import useAuthStore from "../lib/store/authStore";
+import { rankingAPI } from "../lib/api/ranking";
 
 const RankingPage = () => {
-	const { isAuthenticated } = useAuthStore();
-	const [myBookCount, setMyBookCount] = useState(0);
-	const [myPoints, setMyPoints] = useState(0);
+	const { isAuthenticated, userId } = useAuthStore();
+	const [booksRanking, setBooksRanking] = useState([]);
+	const [pointsRanking, setPointsRanking] = useState([]);
 	const [loading, setLoading] = useState(true);
-
-	// 내 데이터 로드
-	useEffect(() => {
-		const fetchMyData = async () => {
-			if (!isAuthenticated) {
-				setLoading(false);
-				return;
-			}
-
-			try {
-				const [purchasedResponse, rentedResponse, activeRentalsResponse, pointsResponse] =
-					await Promise.all([
-						purchaseAPI.getHistory().catch(() => ({ data: [] })),
-						rentalAPI.getHistory().catch(() => ({ data: [] })),
-						rentalAPI.getActive().catch(() => ({ data: [] })),
-						pointsAPI.getMyPoints().catch(() => ({ data: { totalPoints: 0 } })),
-					]);
-
-				// 구매한 책 수
-				const purchasedCount = purchasedResponse.data?.length || 0;
-
-				// 현재 대여 중인 책 수
-				const activeRentalsCount = activeRentalsResponse.data?.length || 0;
-
-				// 총 책 수 (구매 + 현재 대여 중)
-				setMyBookCount(purchasedCount + activeRentalsCount);
-
-				// 포인트
-				setMyPoints(pointsResponse.data?.totalPoints || 0);
-			} catch (error) {
-				console.error("내 데이터 로드 실패:", error);
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		fetchMyData();
-	}, [isAuthenticated]);
-
-	// 더미 데이터 - 구매/대여 책 수 랭킹
-	const booksRanking = [
-		{
-			rank: 1,
-			username: "박상준",
-			bookCount: myBookCount,
-			badge: "🥇",
-			isMe: true,
-		},
-		{
-			rank: 2,
-			username: "최가은",
-			bookCount: 3,
-			badge: "🥈",
-		},
-		{
-			rank: 3,
-			username: "박유경",
-			bookCount: 1,
-			badge: "🥉",
-		},
-	];
-
-	// 더미 데이터 - 포인트 랭킹
-	const pointsRanking = [
-		{
-			rank: 1,
-			username: "박상준",
-			points: myPoints,
-			badge: "🥇",
-			isMe: true,
-		},
-		{
-			rank: 2,
-			username: "최가은",
-			points: 5,
-			badge: "🥈",
-		},
-		{
-			rank: 3,
-			username: "박유경",
-			points: 0,
-			badge: "🥉",
-		},
-	];
+	const [error, setError] = useState(null);
 
 	// 현재 날짜 기준으로 이번 달 정보
 	const now = new Date();
 	const currentMonth = now.getMonth() + 1;
 	const currentYear = now.getFullYear();
 	const nextUpdateDate = new Date(currentYear, currentMonth, 1);
+
+	useEffect(() => {
+		const loadRankings = async () => {
+			if (!isAuthenticated) {
+				setBooksRanking([]);
+				setPointsRanking([]);
+				setLoading(false);
+				return;
+			}
+
+			setLoading(true);
+			setError(null);
+
+			try {
+				const [pointsResponse, booksResponse] = await Promise.all([
+					rankingAPI.getPointsRanking({ year: currentYear, month: currentMonth }),
+					rankingAPI.getBooksRanking({ year: currentYear, month: currentMonth }),
+				]);
+
+				const pointsData = (pointsResponse.data || []).map((item) => ({
+					...item,
+					isMe: item.userId === userId,
+				}));
+
+				const booksData = (booksResponse.data || []).map((item) => ({
+					...item,
+					isMe: item.userId === userId,
+				}));
+
+				pointsData.sort((a, b) => a.rank - b.rank);
+				booksData.sort((a, b) => a.rank - b.rank);
+
+				setPointsRanking(pointsData);
+				setBooksRanking(booksData);
+			} catch (err) {
+				console.error("랭킹 데이터 로드 실패:", err);
+				setError("랭킹 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		loadRankings();
+	}, [isAuthenticated, userId, currentYear, currentMonth]);
 
 	// 올림픽 단상 컴포넌트
 	const Podium = ({ user, rank, type }) => {
@@ -110,6 +69,25 @@ const RankingPage = () => {
 				: rank === 2
 				? "bg-gradient-to-t from-gray-300 to-gray-200"
 				: "bg-gradient-to-t from-orange-400 to-orange-300";
+		const badge = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+
+		if (!user) {
+			return (
+				<div className='flex flex-col items-center'>
+					<div className='mb-3 text-center text-gray-400'>
+						<div className='text-4xl mb-2'>—</div>
+						<div className='text-sm font-medium'>랭킹 없음</div>
+					</div>
+					<div
+						className={`${height} bg-gray-200 w-32 rounded-t-lg shadow-inner border-4 border-white flex items-end justify-center pb-4 relative`}
+					>
+						<div className='absolute top-2 left-1/2 -translate-x-1/2'>
+							<div className='text-4xl font-bold text-white drop-shadow-lg'>#{rank}</div>
+						</div>
+					</div>
+				</div>
+			);
+		}
 
 		return (
 			<div className='flex flex-col items-center'>
@@ -119,7 +97,7 @@ const RankingPage = () => {
 						user.isMe ? "ring-2 ring-primary ring-offset-2 rounded-xl px-3 py-2" : ""
 					}`}
 				>
-					<div className='text-4xl mb-2'>{user.badge}</div>
+					<div className='text-4xl mb-2'>{badge}</div>
 					<div
 						className={`text-xl font-bold mb-2 ${
 							user.isMe
@@ -149,8 +127,13 @@ const RankingPage = () => {
 								: "text-orange-800"
 						}`}
 					>
-						{isBooks ? `${user.bookCount}권` : `${user.points.toLocaleString()}P`}
+						{isBooks ? `${user.totalCount ?? 0}권` : `${(user.points ?? 0).toLocaleString()}P`}
 					</div>
+					{isBooks && (
+						<div className='text-xs text-gray-600 font-medium'>
+							구매 {user.purchaseCount ?? 0}권 · 대여 {user.rentalCount ?? 0}권
+						</div>
+					)}
 				</div>
 
 				{/* 단상 */}
@@ -175,6 +158,19 @@ const RankingPage = () => {
 			</div>
 		);
 	};
+
+	const topBooksByRank = [1, 2, 3].map(
+		(position) => booksRanking.find((item) => item.rank === position) || null
+	);
+	const orderedBooksPodium = [topBooksByRank[1], topBooksByRank[0], topBooksByRank[2]];
+
+	const topPointsByRank = [1, 2, 3].map(
+		(position) => pointsRanking.find((item) => item.rank === position) || null
+	);
+	const orderedPointsPodium = [topPointsByRank[1], topPointsByRank[0], topPointsByRank[2]];
+
+	const topBooksList = booksRanking.slice(0, 10);
+	const topPointsList = pointsRanking.slice(0, 10);
 
 	return (
 		<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
@@ -202,9 +198,17 @@ const RankingPage = () => {
 				</div>
 			</div>
 
-			{loading ? (
+			{!isAuthenticated ? (
+				<div className='bg-white border border-gray-200 rounded-2xl shadow-sm p-10 text-center text-gray-600'>
+					랭킹은 로그인 후 확인할 수 있습니다.
+				</div>
+			) : loading ? (
 				<div className='flex justify-center py-20'>
 					<div className='animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary'></div>
+				</div>
+			) : error ? (
+				<div className='bg-red-50 border border-red-200 text-red-700 rounded-2xl p-6 text-center'>
+					{error}
 				</div>
 			) : (
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12'>
@@ -218,34 +222,55 @@ const RankingPage = () => {
 						{/* 올림픽 단상 */}
 						<div className='flex items-end justify-center gap-4 mb-8'>
 							{/* 2등 */}
-							<Podium user={booksRanking[1]} rank={2} type='books' />
+							<Podium user={orderedBooksPodium[0]} rank={2} type='books' />
 							{/* 1등 */}
-							<Podium user={booksRanking[0]} rank={1} type='books' />
+							<Podium user={orderedBooksPodium[1]} rank={1} type='books' />
 							{/* 3등 */}
-							<Podium user={booksRanking[2]} rank={3} type='books' />
+							<Podium user={orderedBooksPodium[2]} rank={3} type='books' />
 						</div>
 
-						{/* 통계 */}
-						<div className='bg-white rounded-xl p-6 border border-gray-200'>
-							<div className='grid grid-cols-2 gap-4'>
-								<div className='text-center'>
-									<div className='text-2xl font-bold text-blue-600'>
-										{booksRanking.reduce((sum, user) => sum + user.bookCount, 0)}권
-									</div>
-									<div className='text-sm text-gray-600 mt-1'>총 책 수</div>
-								</div>
-								<div className='text-center'>
-									<div className='text-2xl font-bold text-green-600'>
-										{Math.round(
-											(booksRanking.reduce((sum, user) => sum + user.bookCount, 0) /
-												booksRanking.length) *
-												10
-										) / 10}
-										권
-									</div>
-									<div className='text-sm text-gray-600 mt-1'>평균 책 수</div>
-								</div>
+						<div className='bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm'>
+							<div className='px-6 py-3 bg-gray-50 text-sm font-semibold text-gray-700 flex items-center justify-between'>
+								<span>TOP 10 목록</span>
+								<span className='text-xs text-gray-500'>총 {topBooksList.length}명</span>
 							</div>
+							<ul>
+								{topBooksList.map((user) => (
+									<li
+										key={`${user.rank}-${user.userId}`}
+										className={`px-6 py-4 flex items-center justify-between text-sm transition-colors ${
+											user.isMe ? "bg-primary/10 text-primary-dark font-semibold" : "text-gray-700"
+										}`}
+									>
+										<div className='flex items-center gap-4'>
+											<span className='text-lg font-bold text-primary'>#{user.rank}</span>
+											<div>
+												<div className='flex items-center gap-2'>
+													<span>{user.username}</span>
+													{user.isMe && (
+														<span className='text-xs bg-primary text-white rounded-full px-2 py-0.5'>
+															나
+														</span>
+													)}
+												</div>
+												<div className='text-xs text-gray-500'>
+													구매 {user.purchaseCount ?? 0} · 대여 {user.rentalCount ?? 0}
+												</div>
+											</div>
+										</div>
+										<div className='text-right'>
+											<div className='text-base font-bold text-blue-600'>
+												{user.totalCount ?? 0}권
+											</div>
+										</div>
+									</li>
+								))}
+								{topBooksList.length === 0 && (
+									<li className='px-6 py-6 text-center text-sm text-gray-500'>
+										아직 랭킹 데이터가 없습니다.
+									</li>
+								)}
+							</ul>
 						</div>
 					</div>
 
@@ -259,34 +284,53 @@ const RankingPage = () => {
 						{/* 올림픽 단상 */}
 						<div className='flex items-end justify-center gap-4 mb-8'>
 							{/* 2등 */}
-							<Podium user={pointsRanking[1]} rank={2} type='points' />
+							<Podium user={orderedPointsPodium[0]} rank={2} type='points' />
 							{/* 1등 */}
-							<Podium user={pointsRanking[0]} rank={1} type='points' />
+							<Podium user={orderedPointsPodium[1]} rank={1} type='points' />
 							{/* 3등 */}
-							<Podium user={pointsRanking[2]} rank={3} type='points' />
+							<Podium user={orderedPointsPodium[2]} rank={3} type='points' />
 						</div>
 
-						{/* 통계 */}
-						<div className='bg-white rounded-xl p-6 border border-gray-200'>
-							<div className='grid grid-cols-2 gap-4'>
-								<div className='text-center'>
-									<div className='text-2xl font-bold text-purple-600'>
-										{pointsRanking.reduce((sum, user) => sum + user.points, 0).toLocaleString()}P
-									</div>
-									<div className='text-sm text-gray-600 mt-1'>총 포인트</div>
-								</div>
-								<div className='text-center'>
-									<div className='text-2xl font-bold text-purple-600'>
-										{Math.round(
-											(pointsRanking.reduce((sum, user) => sum + user.points, 0) /
-												pointsRanking.length) *
-												10
-										) / 10}
-										P
-									</div>
-									<div className='text-sm text-gray-600 mt-1'>평균 포인트</div>
-								</div>
+						<div className='bg-white rounded-xl border border-purple-100 overflow-hidden shadow-sm'>
+							<div className='px-6 py-3 bg-purple-50 text-sm font-semibold text-purple-700 flex items-center justify-between'>
+								<span>TOP 10 목록</span>
+								<span className='text-xs text-purple-400'>총 {topPointsList.length}명</span>
 							</div>
+							<ul>
+								{topPointsList.map((user) => (
+									<li
+										key={`${user.rank}-${user.userId}`}
+										className={`px-6 py-4 flex items-center justify-between text-sm transition-colors ${
+											user.isMe ? "bg-purple-100/60 text-purple-700 font-semibold" : "text-gray-700"
+										}`}
+									>
+										<div className='flex items-center gap-4'>
+											<span className='text-lg font-bold text-purple-600'>#{user.rank}</span>
+											<div>
+												<div className='flex items-center gap-2'>
+													<span>{user.username}</span>
+													{user.isMe && (
+														<span className='text-xs bg-purple-600 text-white rounded-full px-2 py-0.5'>
+															나
+														</span>
+													)}
+												</div>
+												<div className='text-xs text-gray-500'>회원 ID: {user.userId}</div>
+											</div>
+										</div>
+										<div className='text-right'>
+											<div className='text-base font-bold text-purple-600'>
+												{(user.points ?? 0).toLocaleString()}P
+											</div>
+										</div>
+									</li>
+								))}
+								{topPointsList.length === 0 && (
+									<li className='px-6 py-6 text-center text-sm text-gray-500'>
+										아직 랭킹 데이터가 없습니다.
+									</li>
+								)}
+							</ul>
 						</div>
 					</div>
 				</div>
