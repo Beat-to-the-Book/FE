@@ -283,15 +283,32 @@ useEffect(() => {
 		}
 
 		try {
-			// checkout으로 주문 생성
 			const checkoutResponse = await purchaseAPI.checkout({
 				bookId: bookIdNumber,
 				quantity: 1,
 			});
 
-			// 결제 확인
-			await purchaseAPI.confirm(checkoutResponse.data.orderId);
-			alert("구매가 완료되었습니다.");
+			const { orderId, payUrl } = checkoutResponse.data || {};
+
+			if (!orderId || !payUrl) {
+				alert("주문 정보를 확인할 수 없습니다. 관리자에게 문의해주세요.");
+				return;
+			}
+
+			const pendingOrders = [
+				{
+					orderId,
+					payUrl,
+					itemId: bookIdNumber,
+					title: book?.title || "",
+					quantity: 1,
+				},
+			];
+
+			sessionStorage.setItem("pendingOrders", JSON.stringify(pendingOrders));
+			sessionStorage.setItem("completedOrders", JSON.stringify([]));
+
+			navigate(payUrl, { state: { orderId } });
 		} catch (error) {
 			console.error("구매 에러:", error);
 			if (error.response?.status === 401) {

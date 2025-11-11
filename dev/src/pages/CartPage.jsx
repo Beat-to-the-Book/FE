@@ -87,29 +87,40 @@ const CartPage = () => {
 			setIsProcessing(true);
 			setProcessingType("purchase");
 
-			// 각 상품별로 주문 생성 및 결제 확인
-			const checkoutPromises = selectedItemsList.map((item) =>
-				purchaseAPI.checkout({
+			const checkoutResults = [];
+
+			for (const item of selectedItemsList) {
+				const response = await purchaseAPI.checkout({
 					bookId: item.id,
 					quantity: item.quantity,
-				})
-			);
+				});
+				const { orderId, payUrl } = response.data || {};
 
-			const checkoutResponses = await Promise.all(checkoutPromises);
+				if (!orderId || !payUrl) {
+					throw new Error("주문 정보를 확인할 수 없습니다.");
+				}
 
-			// 모든 주문에 대해 결제 확인
-			const confirmPromises = checkoutResponses.map((response) =>
-				purchaseAPI.confirm(response.data.orderId)
-			);
+				checkoutResults.push({
+					orderId,
+					payUrl,
+					itemId: item.id,
+					title: item.title,
+					quantity: item.quantity,
+				});
+			}
 
-			await Promise.all(confirmPromises);
+			if (checkoutResults.length === 0) {
+				alert("생성된 주문이 없습니다. 다시 시도해주세요.");
+				return;
+			}
 
-			alert(`결제가 완료되었습니다!\n총 ${selectedTotalQuantity}권의 책이 구매되었습니다.`);
+			sessionStorage.setItem("pendingOrders", JSON.stringify(checkoutResults));
+			sessionStorage.setItem("completedOrders", JSON.stringify([]));
 
-			// 선택된 아이템만 장바구니에서 제거
-			selectedItems.forEach((itemId) => removeItem(itemId));
-			setSelectedItems(new Set());
-			navigate("/mypage");
+			alert("결제 페이지로 이동합니다. 결제를 완료해주세요.");
+			navigate(checkoutResults[0].payUrl, {
+				state: { orderId: checkoutResults[0].orderId },
+			});
 		} catch (error) {
 			console.error("결제 에러:", error);
 			if (error.response?.status === 401) {

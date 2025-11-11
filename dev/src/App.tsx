@@ -18,6 +18,8 @@ import ReportDetailPage from "./pages/ReportDetailPage";
 import BookshelfPage from "./pages/BookshelfPage.jsx";
 import RecommendPage from "./pages/RecommendPage";
 import RankingPage from "./pages/RankingPage.jsx";
+import PayPage from "./pages/PayPage.jsx";
+import PaySuccessPage from "./pages/PaySuccessPage.jsx";
 
 function App() {
 	return (
@@ -43,6 +45,8 @@ function App() {
 					<Route path='/bookshelf' element={<BookshelfPage />} />
 					<Route path='/recommend' element={<RecommendPage />} />
 					<Route path='/ranking' element={<RankingPage />} />
+					<Route path='/pay' element={<PayPage />} />
+					<Route path='/pay/success' element={<PaySuccessPage />} />
 				</Routes>
 			</Layout>
 		</Router>
