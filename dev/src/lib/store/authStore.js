@@ -7,22 +7,31 @@ const useAuthStore = create(
 			token: null,
 			isAuthenticated: false,
 			userId: null,
+			userInfo: null,
 
-			setAuth: (token, userId) => {
+			setAuth: (token, userId = null) => {
 				set({
 					token,
+					isAuthenticated: !!token,
+					userId: userId ?? null,
+				});
+			},
+
+			setUserInfo: (info) => {
+				set({
+					userInfo: info,
+					userId: info?.userId ?? info?.id ?? null,
 					isAuthenticated: true,
-					userId,
 				});
 			},
 
 			clearAuth: () => {
-				// 로컬스토리지에서 토큰 제거
 				localStorage.removeItem("token");
 				set({
 					token: null,
 					isAuthenticated: false,
 					userId: null,
+					userInfo: null,
 				});
 			},
 		}),

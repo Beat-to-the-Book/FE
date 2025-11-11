@@ -1,44 +1,122 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { reportAPI } from "../lib/api/report";
 import useAuthStore from "../lib/store/authStore";
+import { authAPI } from "../lib/api/auth";
+import EditReportModal from "../components/EditReportModal";
 
 const ReportsPage = () => {
 	const navigate = useNavigate();
-	const { isAuthenticated } = useAuthStore();
+	const { isAuthenticated, userId, userInfo, setUserInfo } = useAuthStore();
 	const [reports, setReports] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [activeTab, setActiveTab] = useState("all"); // 'all' or 'my'
+	const [selectedReport, setSelectedReport] = useState(null);
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+	const currentUserId = userInfo?.userId ?? userId ?? null;
 
 	useEffect(() => {
-		const fetchReports = async () => {
+		const ensureUserInfo = async () => {
+			if (!isAuthenticated || userInfo) {
+				return;
+			}
 			try {
-				setLoading(true);
-				let response;
-				if (activeTab === "my" && isAuthenticated) {
-					// 본인 독후감 조회
-					response = await reportAPI.getMyReports();
-				} else {
-					// 공개 독후감 조회
-					response = await reportAPI.getPublicReports();
+				const response = await authAPI.getMe();
+				const data = response.data?.data ?? response.data;
+				if (data) {
+					setUserInfo(data);
 				}
-				setReports(response.data);
-				setError("");
-			} catch (error) {
-				console.error("독후감 조회 에러:", error);
-				if (error.response?.status === 401) {
-					setError("로그인이 필요합니다.");
-				} else {
-					setError("독후감을 불러오는데 실패했습니다.");
-				}
-			} finally {
-				setLoading(false);
+			} catch (err) {
+				console.error("사용자 정보 조회 실패:", err);
 			}
 		};
 
-		fetchReports();
+		ensureUserInfo();
+	}, [isAuthenticated, userInfo, setUserInfo]);
+
+	const fetchReports = useCallback(async () => {
+		try {
+			setLoading(true);
+			let response;
+			if (activeTab === "my" && isAuthenticated) {
+				response = await reportAPI.getMyReports();
+			} else {
+				response = await reportAPI.getPublicReports();
+			}
+			setReports(response.data);
+			setError("");
+		} catch (err) {
+			console.error("독후감 조회 에러:", err);
+			if (err.response?.status === 401) {
+				setError("로그인이 필요합니다.");
+			} else {
+				setError("독후감을 불러오는데 실패했습니다.");
+			}
+		} finally {
+			setLoading(false);
+		}
 	}, [activeTab, isAuthenticated]);
+
+	useEffect(() => {
+		fetchReports();
+	}, [fetchReports]);
+
+	const isMyReport = useCallback(
+		(report) => {
+			if (!report || !currentUserId) {
+				return false;
+			}
+			const ownerId =
+				report.userId ??
+				report.authorId ??
+				report.authorUserId ??
+				report.user?.id ??
+				report.user?.userId ??
+				report.author?.userId;
+			return ownerId && String(ownerId) === String(currentUserId);
+		},
+		[currentUserId]
+	);
+
+	const handleDelete = async (reportId, event) => {
+		event.stopPropagation();
+		if (!window.confirm("정말로 이 독후감을 삭제하시겠습니까?")) {
+			return;
+		}
+		try {
+			await reportAPI.deleteMyReport(reportId);
+			await fetchReports();
+		} catch (err) {
+			console.error("독후감 삭제 실패:", err);
+			if (err.response?.status === 401) {
+				alert("로그인이 필요합니다.");
+				navigate("/login");
+			} else if (err.response?.status === 403) {
+				alert("삭제 권한이 없습니다.");
+			} else {
+				alert("독후감 삭제에 실패했습니다.");
+			}
+		}
+	};
+
+	const handleEdit = (report, event) => {
+		event.stopPropagation();
+		setSelectedReport(report);
+		setIsEditModalOpen(true);
+	};
+
+	const handleEditSuccess = async () => {
+		setIsEditModalOpen(false);
+		setSelectedReport(null);
+		await fetchReports();
+	};
+
+	const closeEditModal = () => {
+		setIsEditModalOpen(false);
+		setSelectedReport(null);
+	};
 
 	if (loading) {
 		return (
@@ -138,6 +216,22 @@ const ReportsPage = () => {
 							</div>
 						</div>
 						<p className='text-gray-700 line-clamp-2 leading-relaxed'>{report.content}</p>
+						{isAuthenticated && isMyReport(report) && (
+							<div className='mt-4 flex justify-end gap-2'>
+								<button
+									onClick={(event) => handleEdit(report, event)}
+									className='px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 rounded-lg transition-all'
+								>
+									수정
+								</button>
+								<button
+									onClick={(event) => handleDelete(report.id, event)}
+									className='px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg transition-all'
+								>
+									삭제
+								</button>
+							</div>
+						)}
 					</div>
 				))}
 				{reports.length === 0 && (
@@ -166,6 +260,13 @@ const ReportsPage = () => {
 					</div>
 				)}
 			</div>
+
+			<EditReportModal
+				isOpen={isEditModalOpen}
+				onClose={closeEditModal}
+				report={selectedReport}
+				onSuccess={handleEditSuccess}
+			/>
 		</div>
 	);
 };

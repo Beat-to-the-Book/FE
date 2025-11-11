@@ -1,21 +1,45 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { communityAPI } from "../lib/api/community";
+import { authAPI } from "../lib/api/auth";
+import useAuthStore from "../lib/store/authStore";
 
 const PostPage = () => {
 	const { groupId, postId } = useParams();
 	const navigate = useNavigate();
 	const [post, setPost] = useState(null);
-	const [myPosts, setMyPosts] = useState([]);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editedTitle, setEditedTitle] = useState("");
 	const [editedContent, setEditedContent] = useState("");
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const { isAuthenticated, userInfo, userId, setUserInfo } = useAuthStore();
+	const [isMyPost, setIsMyPost] = useState(false);
+
+	const currentUserId = userInfo?.userId ?? userId ?? null;
+	const currentUsername = userInfo?.username ?? null;
 
 	useEffect(() => {
 		loadPost();
-		loadMyPosts();
 	}, [groupId, postId]);
+
+	useEffect(() => {
+		const ensureUserInfo = async () => {
+			if (!isAuthenticated || userInfo) {
+				return;
+			}
+			try {
+				const response = await authAPI.getMe();
+				const data = response.data?.data ?? response.data;
+				if (data) {
+					setUserInfo(data);
+				}
+			} catch (error) {
+				console.error("사용자 정보 조회 실패:", error);
+			}
+		};
+
+		ensureUserInfo();
+	}, [isAuthenticated, userInfo, setUserInfo]);
 
 	const loadPost = async () => {
 		try {
@@ -23,23 +47,58 @@ const PostPage = () => {
 			setPost(response.data);
 			setEditedTitle(response.data.title);
 			setEditedContent(response.data.content);
+			updateOwnership(response.data);
 		} catch (error) {
 			console.error("게시글 로딩 실패:", error);
 		}
 	};
 
-	const loadMyPosts = async () => {
-		try {
-			const response = await communityAPI.getPosts(groupId);
-			setMyPosts(response.data);
-		} catch (error) {
-			console.error("내 게시글 목록 로딩 실패:", error);
+	const extractOwnerInfo = (postData) => {
+		if (!postData) {
+			return { ownerId: null, ownerUsername: null };
 		}
+
+		const ownerId =
+			postData.userId ??
+			postData.authorId ??
+			postData.createdBy ??
+			postData.user?.id ??
+			postData.user?.userId ??
+			null;
+
+		const ownerUsername =
+			postData.userName ??
+			postData.username ??
+			postData.authorName ??
+			postData.authorUsername ??
+			postData.user?.username ??
+			postData.user?.name ??
+			null;
+
+		return {
+			ownerId: ownerId !== undefined && ownerId !== null ? String(ownerId) : null,
+			ownerUsername: ownerUsername ? String(ownerUsername).trim() : null,
+		};
 	};
 
-	const isMyPost = () => {
-		return myPosts.some((myPost) => myPost.id === parseInt(postId));
+	const updateOwnership = (postData) => {
+		const { ownerId, ownerUsername } = extractOwnerInfo(postData);
+		const normalizedCurrentId = currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
+		const normalizedCurrentUsername = currentUsername ? String(currentUsername).trim() : null;
+
+		const matchesId = ownerId && normalizedCurrentId && ownerId === normalizedCurrentId;
+		const matchesName =
+			ownerUsername && normalizedCurrentUsername && ownerUsername === normalizedCurrentUsername;
+
+		setIsMyPost(matchesId || matchesName);
 	};
+
+	useEffect(() => {
+		if (post) {
+			updateOwnership(post);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentUserId, currentUsername]);
 
 	const handleUpdate = async () => {
 		if (!editedTitle.trim() || !editedContent.trim()) {
@@ -146,7 +205,7 @@ const PostPage = () => {
 								)}
 							</div>
 						</div>
-						{isMyPost() && (
+						{isMyPost && (
 							<div className='flex space-x-2'>
 								<button
 									onClick={() => setIsEditing(true)}

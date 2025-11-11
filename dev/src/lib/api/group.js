@@ -9,6 +9,9 @@ export const groupAPI = {
 
 	getMembers: (groupId) => privateApi.get(`/groups/${groupId}/members`),
 
+	delegateLeader: (groupId, targetUserId) =>
+		privateApi.post(`/groups/${groupId}/members/transfer/${targetUserId}`),
+
 	kickMember: (groupId, targetUserId) =>
 		privateApi.delete(`/groups/${groupId}/members/kick/${targetUserId}`),
 

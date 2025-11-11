@@ -10,6 +10,7 @@ const CommunityPage = () => {
 	const [showJoinModal, setShowJoinModal] = useState(false);
 	const [selectedGroup, setSelectedGroup] = useState(null);
 	const [newGroupName, setNewGroupName] = useState("");
+	const [activeTab, setActiveTab] = useState("all"); // 'all' | 'mine'
 
 	useEffect(() => {
 		loadGroups();
@@ -70,22 +71,44 @@ const CommunityPage = () => {
 		}
 	};
 
-	return (
-		<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-			<div className='flex justify-between items-center mb-8'>
-				<div>
-					<h1 className='text-3xl font-bold text-primary mb-2'>커뮤니티</h1>
-					<p className='text-gray-600'>독서 모임에 참여하고 다양한 사람들과 소통하세요</p>
+	const renderGroupCard = (group, isJoined) => (
+		<div
+			key={group.id}
+			className='bg-white p-6 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-primary-light/30 cursor-pointer transform hover:-translate-y-1'
+			onClick={() => handleGroupClick(group)}
+		>
+			<div className='flex items-start justify-between mb-4'>
+				<div className='flex-1'>
+					<h2 className='text-xl font-bold text-gray-900 mb-2'>{group.name}</h2>
+					{isJoined && (
+						<span className='inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary-light/10 text-primary'>
+							<svg className='w-3 h-3 mr-1' fill='currentColor' viewBox='0 0 20 20'>
+								<path
+									fillRule='evenodd'
+									d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+									clipRule='evenodd'
+								/>
+							</svg>
+							가입됨
+						</span>
+					)}
 				</div>
-				<button
-					onClick={() => setShowCreateModal(true)}
-					className='bg-primary text-white px-6 py-3 rounded-xl hover:bg-primary-dark transition-all font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
-				>
-					+ 새 그룹 만들기
-				</button>
+				<div className='w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center'>
+					<svg className='w-6 h-6 text-primary' fill='currentColor' viewBox='0 0 20 20'>
+						<path d='M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z' />
+					</svg>
+				</div>
 			</div>
+			<div className='flex items-center justify-between text-sm'>
+				<span className='text-gray-500'>{isJoined ? "그룹 활동 참여 중" : "가입 가능"}</span>
+				<span className='text-primary font-medium'>자세히 보기 →</span>
+			</div>
+		</div>
+	);
 
-			{allGroups.length === 0 ? (
+	const renderGroupList = (groups, highlightJoined) => {
+		if (groups.length === 0) {
+			return (
 				<div className='text-center py-16'>
 					<div className='w-20 h-20 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-4'>
 						<svg
@@ -102,52 +125,69 @@ const CommunityPage = () => {
 							/>
 						</svg>
 					</div>
-					<p className='text-gray-600 text-lg'>아직 생성된 그룹이 없습니다</p>
-					<p className='text-gray-500 text-sm mt-2'>첫 번째 그룹을 만들어보세요!</p>
+					<p className='text-gray-600 text-lg'>
+						{highlightJoined ? "가입한 그룹이 없습니다" : "아직 생성된 그룹이 없습니다"}
+					</p>
+					<p className='text-gray-500 text-sm mt-2'>
+						{highlightJoined ? "관심있는 그룹에 가입해보세요!" : "첫 번째 그룹을 만들어보세요!"}
+					</p>
 				</div>
-			) : (
-				<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-					{allGroups.map((group) => {
-						const isJoined = myGroups.some((myGroup) => myGroup.id === group.id);
-						return (
-							<div
-								key={group.id}
-								className='bg-white p-6 rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-primary-light/30 cursor-pointer transform hover:-translate-y-1'
-								onClick={() => handleGroupClick(group)}
-							>
-								<div className='flex items-start justify-between mb-4'>
-									<div className='flex-1'>
-										<h2 className='text-xl font-bold text-gray-900 mb-2'>{group.name}</h2>
-										{isJoined && (
-											<span className='inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary-light/10 text-primary'>
-												<svg className='w-3 h-3 mr-1' fill='currentColor' viewBox='0 0 20 20'>
-													<path
-														fillRule='evenodd'
-														d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
-														clipRule='evenodd'
-													/>
-												</svg>
-												가입됨
-											</span>
-										)}
-									</div>
-									<div className='w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center'>
-										<svg className='w-6 h-6 text-primary' fill='currentColor' viewBox='0 0 20 20'>
-											<path d='M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z' />
-										</svg>
-									</div>
-								</div>
-								<div className='flex items-center justify-between text-sm'>
-									<span className='text-gray-500'>
-										{isJoined ? "그룹 활동 참여 중" : "그룹 둘러보기"}
-									</span>
-									<span className='text-primary font-medium'>자세히 보기 →</span>
-								</div>
-							</div>
-						);
-					})}
+			);
+		}
+
+		return (
+			<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+				{groups.map((group) => {
+					const isJoined = myGroups.some((myGroup) => myGroup.id === group.id);
+					return renderGroupCard(group, highlightJoined ? true : isJoined);
+				})}
+			</div>
+		);
+	};
+
+	return (
+		<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+			<div className='flex justify-between items-center mb-8'>
+				<div>
+					<h1 className='text-3xl font-bold text-primary mb-2'>커뮤니티</h1>
+					<p className='text-gray-600'>독서 모임에 참여하고 다양한 사람들과 소통하세요</p>
 				</div>
-			)}
+				<button
+					onClick={() => setShowCreateModal(true)}
+					className='bg-primary text-white px-6 py-3 rounded-xl hover:bg-primary-dark transition-all font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
+				>
+					+ 새 그룹 만들기
+				</button>
+			</div>
+
+			<div className='mb-6 border-b border-gray-200'>
+				<nav className='flex space-x-6'>
+					<button
+						className={`pb-2 text-sm font-semibold transition-all ${
+							activeTab === "all"
+								? "text-primary border-b-2 border-primary"
+								: "text-gray-500 hover:text-primary"
+						}`}
+						onClick={() => setActiveTab("all")}
+					>
+						전체 그룹 ({allGroups.length})
+					</button>
+					<button
+						className={`pb-2 text-sm font-semibold transition-all ${
+							activeTab === "mine"
+								? "text-primary border-b-2 border-primary"
+								: "text-gray-500 hover:text-primary"
+						}`}
+						onClick={() => setActiveTab("mine")}
+					>
+						내 그룹 ({myGroups.length})
+					</button>
+				</nav>
+			</div>
+
+			{activeTab === "all"
+				? renderGroupList(allGroups, false)
+				: renderGroupList(myGroups, true)}
 
 			{/* 그룹 생성 모달 */}
 			{showCreateModal && (
