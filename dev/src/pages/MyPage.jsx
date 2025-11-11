@@ -48,6 +48,45 @@ const MyPage = () => {
 	const [points, setPoints] = useState(0);
 	const [pointsLoading, setPointsLoading] = useState(true);
 
+	const enrichPurchasedBooks = useCallback(
+		async (purchases) =>
+			Promise.all(
+				(purchases || []).map(async (purchase) => {
+					if (purchase.frontCoverImageUrl) {
+						return {
+							...purchase,
+							bookId: purchase.bookId || purchase.id,
+						};
+					}
+
+					const bookId = purchase.bookId || purchase.id;
+
+					try {
+						if (bookId) {
+							const bookDetail = await bookAPI.getById(bookId);
+							return {
+								...purchase,
+								bookId,
+								frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
+								backCoverImageUrl: bookDetail.data.backCoverImageUrl,
+								leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
+								author: bookDetail.data.author || purchase.author,
+								publisher: bookDetail.data.publisher || purchase.publisher,
+							};
+						}
+					} catch (error) {
+						console.error(`책 ${bookId} 정보 가져오기 실패:`, error);
+					}
+
+					return {
+						...purchase,
+						bookId,
+					};
+				})
+			),
+		[]
+	);
+
 	useEffect(() => {
 		if (!isAuthenticated) {
 			navigate("/login");
@@ -73,39 +112,7 @@ const MyPage = () => {
 
 				// purchase history에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
 				// purchase/history의 id 필드는 bookId를 의미함
-				const purchasedWithImages = await Promise.all(
-					purchasedResponse.data.map(async (purchase) => {
-						// 이미 이미지 URL이 있으면 그대로 사용
-						if (purchase.frontCoverImageUrl) {
-							return {
-								...purchase,
-								bookId: purchase.bookId || purchase.id, // id를 bookId로 매핑
-							};
-						}
-						// 없으면 bookId(id)로 책 상세 정보 가져오기
-						try {
-							const bookId = purchase.bookId || purchase.id; // purchase/history의 id는 bookId
-							if (bookId) {
-								const bookDetail = await bookAPI.getById(bookId);
-								return {
-									...purchase,
-									bookId: bookId, // 명시적으로 bookId 설정
-									frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
-									backCoverImageUrl: bookDetail.data.backCoverImageUrl,
-									leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
-									author: bookDetail.data.author || purchase.author,
-									publisher: bookDetail.data.publisher || purchase.publisher,
-								};
-							}
-						} catch (error) {
-							console.error(`책 ${purchase.bookId || purchase.id} 정보 가져오기 실패:`, error);
-						}
-						return {
-							...purchase,
-							bookId: purchase.bookId || purchase.id, // id를 bookId로 매핑
-						};
-					})
-				);
+				const purchasedWithImages = await enrichPurchasedBooks(purchasedResponse.data);
 
 				// active rentals에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
 				const activeRentalsWithImages = await Promise.all(
@@ -152,7 +159,7 @@ const MyPage = () => {
 		};
 
 		fetchData();
-	}, [isAuthenticated, navigate]);
+	}, [enrichPurchasedBooks, isAuthenticated, navigate]);
 
 	// 독서 기록 조회
 	useEffect(() => {
@@ -391,7 +398,8 @@ const MyPage = () => {
 			alert("환불 신청이 완료되었습니다.");
 			// 구매 이력 새로고침
 			const purchasedResponse = await purchaseAPI.getHistory();
-			const uniquePurchasedBooks = removeDuplicates(purchasedResponse.data, "purchaseDate");
+			const purchasesWithImages = await enrichPurchasedBooks(purchasedResponse.data);
+			const uniquePurchasedBooks = removeDuplicates(purchasesWithImages, "purchaseDate");
 			setPurchasedBooks(uniquePurchasedBooks);
 		} catch (error) {
 			console.error("환불 에러:", error);
