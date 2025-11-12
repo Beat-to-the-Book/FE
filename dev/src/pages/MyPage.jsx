@@ -36,6 +36,7 @@ const MyPage = () => {
 	const [purchasedBooks, setPurchasedBooks] = useState([]);
 	const [activeRentals, setActiveRentals] = useState([]);
 	const [combinedHistory, setCombinedHistory] = useState([]);
+	const [ownedBooks, setOwnedBooks] = useState([]);
 	const [myReports, setMyReports] = useState([]);
 	const [activeRentalsLoading, setActiveRentalsLoading] = useState(false);
 	const [myReviews, setMyReviews] = useState([]);
@@ -62,7 +63,7 @@ const MyPage = () => {
 		[activeRentals]
 	);
 
-	const uniqueReadBooksCount = useMemo(() => {
+	const uniqueBooksReadCount = useMemo(() => {
 		return new Set((readingRecords || []).map((record) => record.bookId)).size;
 	}, [readingRecords]);
 
@@ -142,7 +143,7 @@ const MyPage = () => {
 					reportsResponse,
 					activeRentalsResponse,
 					pointsResponse,
-					throwableBooksResponse,
+					myBooksResponse,
 				] = await Promise.all([
 					purchaseAPI.getHistory(),
 					rentalAPI.getHistory(),
@@ -182,8 +183,10 @@ const MyPage = () => {
 					})
 				);
 
-				// 중복 제거 및 최신 기록만 유지
-				const uniquePurchasedBooks = removeDuplicates(purchasedWithImages, "purchaseDate");
+				const processedPurchases = purchasedWithImages.map((purchase) => ({
+					...purchase,
+					source: "purchase",
+				}));
 				const rentalHistoryEntries = (rentedResponse.data || []).map((rental) => ({
 					...rental,
 					source: "rental",
@@ -194,27 +197,16 @@ const MyPage = () => {
 					source: "rental",
 					isActive: true,
 				}));
-				const rentalKey = (item) =>
-					item.rentalId ||
-					item.id ||
-					`${item.bookId || item.title}-${item.startDate || item.rentalDate || "unknown"}`;
-				const rentalMap = new Map();
-				[...rentalHistoryEntries, ...activeRentalEntries].forEach((entry) => {
-					const key = rentalKey(entry);
-					if (!rentalMap.has(key) || entry.isActive) {
-						rentalMap.set(key, entry);
-					}
-				});
-				const combinedRentalHistory = Array.from(rentalMap.values());
+				const combinedRentalHistory = [...rentalHistoryEntries, ...activeRentalEntries];
 
-				setPurchasedBooks(uniquePurchasedBooks);
+				setPurchasedBooks(processedPurchases);
 				setCombinedHistory(combinedRentalHistory);
 				setActiveRentals(activeRentalsWithImages);
 				setMyReports(reportsResponse.data);
 				setPoints(pointsResponse.data?.totalPoints || 0);
-				const throwableCount = (throwableBooksResponse.data || []).filter(
-					(book) => !book.thrown
-				).length;
+				const myBooks = Array.isArray(myBooksResponse.data) ? myBooksResponse.data : [];
+				const throwableCount = myBooks.filter((book) => !book.thrown).length;
+				setOwnedBooks(myBooks);
 				setThrowableBooksCount(throwableCount);
 				setPointsLoading(false);
 				setLoading(false);
@@ -495,21 +487,22 @@ const MyPage = () => {
 	// 구매한 책 + 대여한 책 목록 (중복 제거)
 	// purchase/history의 id는 bookId를 의미
 	const libraryItems = useMemo(() => {
+		const toDate = (entry) => {
+			if (entry.purchaseDate) return new Date(entry.purchaseDate);
+			if (entry.rentalDate) return new Date(entry.rentalDate);
+			if (entry.startDate) return new Date(entry.startDate);
+			if (entry.createdAt) return new Date(entry.createdAt);
+			return null;
+		};
 		const purchases = purchasedBooks.map((book) => ({
 			...book,
 			_entryType: "purchase",
-			_entryDate: book.purchaseDate ? new Date(book.purchaseDate) : null,
+			_entryDate: toDate(book),
 		}));
 		const rentals = combinedHistory.map((book) => ({
 			...book,
 			_entryType: "rental",
-			_entryDate: book.rentalDate
-				? new Date(book.rentalDate)
-				: book.startDate
-				? new Date(book.startDate)
-				: book.createdAt
-				? new Date(book.createdAt)
-				: null,
+			_entryDate: toDate(book),
 		}));
 		return [...purchases, ...rentals].sort((a, b) => {
 			if (!a._entryDate || !b._entryDate) return 0;
@@ -517,13 +510,18 @@ const MyPage = () => {
 		});
 	}, [purchasedBooks, combinedHistory]);
 
-	const allBooks = useMemo(() => {
-		const unique = libraryItems.filter(
-			(item, index, self) =>
-				index === self.findIndex((b) => (b.bookId || b.id) === (item.bookId || item.id))
-		);
-		return unique;
-	}, [libraryItems]);
+	const uniqueOwnedBooks = useMemo(() => {
+		const map = new Map();
+		ownedBooks.forEach((book) => {
+			const id = book.bookId || book.id;
+			if (!map.has(id)) {
+				map.set(id, book);
+			}
+		});
+		return Array.from(map.values());
+	}, [ownedBooks]);
+
+	const totalHoldingsCount = ownedBooks.length;
 
 	if (loading) {
 		return (
@@ -567,7 +565,7 @@ const MyPage = () => {
 							<span className='text-xl'>📚</span>
 						</div>
 					</div>
-					<div className='text-2xl font-bold text-primary'>{uniqueReadBooksCount}</div>
+					<div className='text-2xl font-bold text-primary'>{uniqueBooksReadCount}</div>
 					<p className='text-xs text-gray-500 mt-1'>읽은 도서 수</p>
 				</div>
 
@@ -600,8 +598,8 @@ const MyPage = () => {
 							<span className='text-xl'>📖</span>
 						</div>
 					</div>
-					<div className='text-2xl font-bold text-primary'>{allBooks.length}</div>
-					<p className='text-xs text-gray-500 mt-1'>지금까지 구매 + 대여한 전체 도서</p>
+					<div className='text-2xl font-bold text-primary'>{totalHoldingsCount}</div>
+					<p className='text-xs text-gray-500 mt-1'>지금까지 구매 + 대여한 책 수 (중복 제외)</p>
 				</div>
 			</div>
 
@@ -695,7 +693,7 @@ const MyPage = () => {
 					}}
 					onSubmit={editingReading ? handleUpdateReading : handleAddReading}
 					selectedDate={selectedDate}
-					books={allBooks}
+					books={uniqueOwnedBooks}
 					editData={editingReading}
 				/>
 			</div>
@@ -920,7 +918,7 @@ const MyPage = () => {
 								{ count: 40, points: 20 },
 								{ count: 50, points: 25 },
 							].map((achievement, index) => {
-								const completed = allBooks.length >= achievement.count;
+								const completed = totalHoldingsCount >= achievement.count;
 								return (
 									<div
 										key={index}
@@ -943,7 +941,7 @@ const MyPage = () => {
 													보유 책 {achievement.count}권
 												</div>
 												<div className='text-sm text-gray-600'>
-													현재: {allBooks.length}권 / {achievement.count}권
+													현재: {totalHoldingsCount}권 / {achievement.count}권
 												</div>
 											</div>
 										</div>
@@ -973,45 +971,24 @@ const MyPage = () => {
 				</div>
 			)}
 
-			{/* 구매/대여한 책 탭 */}
+			{/* 구매한 책 탭 */}
 			{activeTab === "purchased" && (
 				<div>
-					{libraryItems.length > 0 ? (
+					{purchasedBooks.length > 0 ? (
 						<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
-							{libraryItems.map((item) => {
-								const isPurchase = item._entryType === "purchase";
-								const isRefundRequested = isPurchase && item.status === "REFUND_REQUESTED";
-								const statusLabel = isPurchase
-									? isRefundRequested
-										? "환불 신청"
-										: "구매완료"
-									: item.isActive
-									? "대여중"
-									: "대여 완료";
-								const statusClass = isPurchase
-									? isRefundRequested
-										? "bg-orange-500 text-white"
-										: "bg-primary text-white"
-									: item.isActive
-									? "bg-emerald-500 text-white"
-									: "bg-gray-400 text-white";
-								const displayDate = isPurchase
-									? item.purchaseDate
-									: item.rentalDate || item.startDate || item.createdAt;
-								const dateLabel = isPurchase ? "구매일" : item.isActive ? "대여 시작" : "대여일";
-								const dueDate = !isPurchase ? item.dueDate || item.returnDate : null;
-								const key = `${item._entryType}-${item.id || item.rentalId || item.bookId}`;
+							{purchasedBooks.map((book) => {
+								const isRefundRequested = book.status === "REFUND_REQUESTED";
 								return (
 									<div
-										key={key}
+										key={book.id || book.bookId}
 										className='group relative bg-white rounded-lg shadow hover:shadow-xl overflow-hidden cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
-										onClick={() => navigate(`/book/${item.bookId || item.id}`)}
+										onClick={() => navigate(`/book/${book.bookId || book.id}`)}
 									>
 										<div className='relative'>
-											{item.frontCoverImageUrl ? (
+											{book.frontCoverImageUrl ? (
 												<img
-													src={item.frontCoverImageUrl}
-													alt={item.bookTitle || item.title}
+													src={book.frontCoverImageUrl}
+													alt={book.bookTitle || book.title}
 													className='w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300'
 												/>
 											) : (
@@ -1020,16 +997,18 @@ const MyPage = () => {
 												</div>
 											)}
 											<div
-												className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${statusClass}`}
+												className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${
+													isRefundRequested ? "bg-orange-500 text-white" : "bg-primary text-white"
+												}`}
 											>
-												{statusLabel}
+												{isRefundRequested ? "환불 신청" : "구매완료"}
 											</div>
 										</div>
 										<div className='p-4'>
 											<h3 className='font-bold text-base text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors'>
-												{item.bookTitle || item.title}
+												{book.bookTitle || book.title}
 											</h3>
-											<p className='text-sm text-gray-600 mb-3'>{item.author}</p>
+											<p className='text-sm text-gray-600 mb-3'>{book.author}</p>
 											<div className='space-y-2'>
 												<div className='flex items-center gap-1.5 text-xs text-gray-500'>
 													<svg
@@ -1045,47 +1024,25 @@ const MyPage = () => {
 															d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'
 														/>
 													</svg>
-													<span>
-														{dateLabel}:{" "}
-														{displayDate ? new Date(displayDate).toLocaleDateString("ko-KR") : "-"}
-													</span>
+													{book.purchaseDate
+														? new Date(book.purchaseDate).toLocaleDateString("ko-KR")
+														: "-"}
 												</div>
-												{!isPurchase && dueDate && (
-													<div className='flex items-center gap-1.5 text-xs text-gray-500'>
-														<svg
-															className='w-4 h-4 text-primary'
-															fill='none'
-															stroke='currentColor'
-															viewBox='0 0 24 24'
-														>
-															<path
-																strokeLinecap='round'
-																strokeLinejoin='round'
-																strokeWidth={2}
-																d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
-															/>
-														</svg>
-														<span>
-															{item.isActive ? "반납 예정" : "반납일"}:{" "}
-															{new Date(dueDate).toLocaleDateString("ko-KR")}
-														</span>
-													</div>
-												)}
-												{isPurchase && !isRefundRequested && (
+												{!isRefundRequested && (
 													<button
 														onClick={(e) => {
 															e.stopPropagation();
-															handleRefund(item.id, e);
+															handleRefund(book.id, e);
 														}}
 														className='w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors'
 													>
 														환불 신청
 													</button>
 												)}
-												{isPurchase && isRefundRequested && item.refundReason && (
+												{isRefundRequested && book.refundReason && (
 													<div className='text-xs text-gray-600 bg-gray-50 p-2 rounded'>
 														<div className='font-medium mb-1'>환불 사유:</div>
-														<div className='text-gray-700'>{item.refundReason}</div>
+														<div className='text-gray-700'>{book.refundReason}</div>
 													</div>
 												)}
 											</div>
@@ -1097,10 +1054,8 @@ const MyPage = () => {
 					) : (
 						<div className='text-center py-16 bg-gray-50 rounded-lg border border-dashed border-gray-300'>
 							<div className='text-5xl mb-3 opacity-50'>📚</div>
-							<p className='text-base font-semibold text-gray-700 mb-1'>
-								구매/대여한 책이 없습니다
-							</p>
-							<p className='text-sm text-gray-500'>마음에 드는 책을 구매하거나 대여해보세요</p>
+							<p className='text-base font-semibold text-gray-700 mb-1'>구매한 책이 없습니다</p>
+							<p className='text-sm text-gray-500'>마음에 드는 책을 구매해보세요</p>
 						</div>
 					)}
 				</div>
