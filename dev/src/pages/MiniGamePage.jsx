@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as THREE from "three";
 import * as CANNON from "cannon";
-import { gameAPI } from "../lib/api/game";
 import { pointsAPI } from "../lib/api/points";
 
 const MiniGamePage = () => {
@@ -11,27 +11,146 @@ const MiniGamePage = () => {
 	const hasThrownRef = useRef(false);
 	const insideShelfTimeRef = useRef(0);
 	const successRef = useRef(false);
+	const activeBookRef = useRef(null);
+	const attemptedBookRef = useRef(null);
+	const resultCooldownRef = useRef(false);
+	const resultTimeoutRef = useRef(null);
+	const cleanupSceneRef = useRef(null);
 
 	const [bookData, setBookData] = useState(null);
 	const [hasThrown, setHasThrown] = useState(false);
-	const [success, setSuccess] = useState(false);
+	const [availableBooks, setAvailableBooks] = useState([]);
+	const [playableCount, setPlayableCount] = useState(0);
+	const [result, setResult] = useState(null);
+	const [noAvailableBook, setNoAvailableBook] = useState(false);
+	const [loading, setLoading] = useState(true);
+	const navigate = useNavigate();
 
-	// 0. 구매 내역 + 대여 내역 합쳐서 랜덤 책 하나 선택
-	useEffect(() => {
-		Promise.all([gameAPI.getPurchaseHistory(), gameAPI.getRentalHistory()])
-			.then(([purchases, rentals]) => {
-				const combined = [...purchases.data, ...rentals.data];
-				const valid = combined.filter(
-					(item) => item.frontCoverImageUrl || item.backCoverImageUrl || item.leftCoverImageUrl
-				);
-				if (valid.length > 0) {
-					const randomBook = valid[Math.floor(Math.random() * valid.length)];
-					setBookData(randomBook);
+	const handleAttemptComplete = (wasSuccessful) => {
+		const attempted = attemptedBookRef.current;
+		if (!attempted || (!attempted.bookId && !attempted.id)) {
+			return;
+		}
+
+		const attemptedBookId = attempted.bookId ?? attempted.id;
+
+		setResult({
+			type: wasSuccessful ? "success" : "fail",
+			message: wasSuccessful
+				? "성공! 포인트가 지급되는 중입니다..."
+				: "아쉽지만 실패했습니다. 다시 도전해보세요!",
+		});
+
+		pointsAPI
+			.throwBook({
+				bookId: attemptedBookId,
+				success: wasSuccessful,
+			})
+			.then((response) => {
+				const data = response?.data || {};
+				if (wasSuccessful) {
+					setResult({
+						type: "success",
+						message: `성공! ${data.pointsAwarded ?? 5}점 획득!`,
+						totalPoints: data.totalPoints,
+					});
 				} else {
-					console.warn("표지 이미지가 있는 책이 없습니다. 기본 컬러로 렌더링합니다.");
+					setResult({
+						type: "fail",
+						message: "아쉽지만 실패했습니다. 다시 도전해보세요!",
+						totalPoints: data.totalPoints,
+					});
 				}
 			})
-			.catch((err) => console.error("책 정보 불러오기 실패:", err));
+			.catch((error) => {
+				console.error("포인트 처리 실패:", error);
+				if (wasSuccessful) {
+					setResult({
+						type: "success",
+						message: "성공! 포인트 반영을 확인하지 못했습니다.",
+					});
+				} else {
+					setResult({
+						type: "fail",
+						message: "실패 결과를 기록하지 못했습니다. 잠시 후 다시 시도해주세요.",
+					});
+				}
+			})
+			.finally(() => {
+				setAvailableBooks((prev) => prev.filter((book) => book.bookId !== attemptedBookId));
+				attemptedBookRef.current = null;
+				successRef.current = false;
+				resultCooldownRef.current = true;
+				if (resultTimeoutRef.current) {
+					clearTimeout(resultTimeoutRef.current);
+				}
+				resultTimeoutRef.current = setTimeout(() => {
+					resultCooldownRef.current = false;
+					setResult(null);
+					resultTimeoutRef.current = null;
+				}, 1200);
+			});
+	};
+
+	// 0. 던질 수 있는 책 목록 조회
+	useEffect(() => {
+		const fetchBooks = async () => {
+			setLoading(true);
+			try {
+				const response = await pointsAPI.getMyBooks();
+				const books = Array.isArray(response.data) ? response.data : [];
+				const playable = books.filter((book) => !book.thrown);
+				setAvailableBooks(playable);
+			} catch (err) {
+				console.error("던질 수 있는 책 목록 조회 실패:", err);
+				setAvailableBooks([]);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchBooks();
+	}, []);
+
+	useEffect(() => {
+		if (loading) {
+			return;
+		}
+
+		setPlayableCount(availableBooks.length);
+
+		if (availableBooks.length === 0) {
+			cleanupSceneRef.current?.();
+			cleanupSceneRef.current = null;
+			activeBookRef.current = null;
+			setBookData(null);
+			setNoAvailableBook(true);
+			setResult(null);
+			return;
+		}
+
+		setNoAvailableBook(false);
+		setBookData((prev) => {
+			if (prev) {
+				const matching = availableBooks.find((book) => book.bookId === prev.bookId);
+				if (matching) {
+					activeBookRef.current = matching;
+					return matching;
+				}
+			}
+			const nextBook = availableBooks[Math.floor(Math.random() * availableBooks.length)];
+			activeBookRef.current = nextBook;
+			return nextBook;
+		});
+	}, [availableBooks, loading]);
+
+	useEffect(() => {
+		return () => {
+			if (resultTimeoutRef.current) {
+				clearTimeout(resultTimeoutRef.current);
+				resultTimeoutRef.current = null;
+			}
+		};
 	}, []);
 
 	// 1~7. bookData 준비된 뒤 Three.js + cannon.js 초기화
@@ -320,9 +439,20 @@ const MiniGamePage = () => {
 		const baseUpward = 5;
 
 		const onPointerDown = (e) => {
-			if (hasThrownRef.current) return;
+			if (hasThrownRef.current || !activeBookRef.current || resultCooldownRef.current) {
+				return;
+			}
+			if (resultTimeoutRef.current) {
+				clearTimeout(resultTimeoutRef.current);
+				resultTimeoutRef.current = null;
+			}
+			setResult(null);
+			attemptedBookRef.current = activeBookRef.current;
+
 			dragging = true;
 			dragStart = { x: e.clientX, y: e.clientY };
+			insideShelfTimeRef.current = 0;
+			successRef.current = false;
 			if (!arrowLine) {
 				const geom = new THREE.BufferGeometry().setFromPoints([
 					new THREE.Vector3(),
@@ -397,6 +527,9 @@ const MiniGamePage = () => {
 				if (!resetTriggeredRef.current) {
 					resetTriggeredRef.current = true;
 					setTimeout(() => {
+						const wasSuccessful = successRef.current;
+						handleAttemptComplete(wasSuccessful);
+
 						// 리셋
 						bookBody.position.set(initialBookPos.x, initialBookPos.y, initialBookPos.z);
 						bookBody.velocity.set(0, 0, 0);
@@ -407,8 +540,6 @@ const MiniGamePage = () => {
 
 						insideShelfTimeRef.current = 0;
 						successRef.current = false;
-						setSuccess(false);
-
 						resetTriggeredRef.current = false;
 					}, 4000);
 				}
@@ -460,22 +591,14 @@ const MiniGamePage = () => {
 					insideShelfTimeRef.current += delta;
 					if (insideShelfTimeRef.current >= 1) {
 						successRef.current = true;
-						setSuccess(true);
-
-						// 성공 시 포인트 획득 API 호출
-						if (bookData && bookData.id) {
-							pointsAPI
-								.throwBook({
-									bookId: bookData.id,
-									success: true,
-								})
-								.then(() => {
-									console.log("포인트 1점 획득!");
-								})
-								.catch((error) => {
-									console.error("포인트 획득 실패:", error);
-								});
-						}
+						setResult((prev) =>
+							prev?.type === "success"
+								? prev
+								: {
+										type: "success",
+										message: "성공! 포인트가 지급되는 중입니다...",
+								  }
+						);
 					}
 				} else {
 					insideShelfTimeRef.current = 0;
@@ -509,7 +632,7 @@ const MiniGamePage = () => {
 		};
 		window.addEventListener("resize", handleResize);
 
-		return () => {
+		const cleanup = () => {
 			window.removeEventListener("resize", handleResize);
 			renderer.domElement.removeEventListener("pointerdown", onPointerDown);
 			renderer.domElement.removeEventListener("pointermove", onPointerMove);
@@ -519,13 +642,60 @@ const MiniGamePage = () => {
 			if (gl && gl.getExtension("WEBGL_lose_context")) {
 				gl.getExtension("WEBGL_lose_context").loseContext();
 			}
-			mountRef.current?.removeChild(renderer.domElement);
+			if (mountRef.current?.contains(renderer.domElement)) {
+				mountRef.current.removeChild(renderer.domElement);
+			}
+		};
+
+		cleanupSceneRef.current = cleanup;
+
+		return () => {
+			cleanupSceneRef.current = null;
+			cleanup();
 		};
 	}, [bookData]);
 
 	// 로딩 상태
-	if (!bookData) {
-		return <div className='w-full h-full flex items-center justify-center'>로딩 중...</div>;
+	if (loading) {
+		return (
+			<div className='w-full h-full flex items-center justify-center text-gray-600 text-lg'>
+				로딩 중...
+			</div>
+		);
+	}
+
+	if (noAvailableBook) {
+		return (
+			<div className='w-full min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-white px-6 text-center'>
+				<div className='w-full max-w-xl bg-white shadow-2xl rounded-3xl border border-gray-100 px-10 py-12 flex flex-col items-center space-y-6'>
+					<div className='w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-4xl text-primary'>
+						📚
+					</div>
+					<div className='space-y-3'>
+						<h2 className='text-2xl font-bold text-gray-900'>던질 수 있는 책이 없어요</h2>
+						<p className='text-gray-600 leading-relaxed'>
+							이미 던져본 책은 다시 사용할 수 없어요. 새로운 도서를 구매하거나 대여해서 다시 한 번
+							도전해보세요!
+						</p>
+						<p className='text-sm font-semibold text-primary'>현재 던질 수 있는 책: 0권</p>
+					</div>
+					<div className='w-full grid gap-3 sm:grid-cols-2'>
+						<button
+							onClick={() => navigate("/recommend")}
+							className='w-full px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-all shadow'
+						>
+							추천 도서 보러가기
+						</button>
+						<button
+							onClick={() => navigate("/")}
+							className='w-full px-5 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all'
+						>
+							다른 책 찾기
+						</button>
+					</div>
+				</div>
+			</div>
+		);
 	}
 
 	// 렌더링
@@ -535,10 +705,21 @@ const MiniGamePage = () => {
 			<div className='absolute top-4 left-4 text-white text-lg z-10'>
 				마우스를 드래그하여 책을 던지세요.
 			</div>
-			{success && (
-				<div className='absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10'>
-					<div className='bg-white text-black text-2xl px-6 py-4 rounded-lg shadow-lg'>
-						🎉 성공! 책이 선반에 안착했습니다!
+			<div className='absolute top-4 right-4 bg-black/60 text-white text-sm sm:text-base px-4 py-2 rounded-xl shadow-lg z-10'>
+				던질 수 있는 책: <span className='font-semibold'>{playableCount}</span>권
+			</div>
+			{result && (
+				<div className='absolute inset-0 flex items-center justify-center bg-black/60 z-10 px-6 text-center'>
+					<div
+						className={`bg-white px-6 py-5 rounded-2xl shadow-2xl text-2xl font-semibold ${
+							result.type === "success" ? "text-green-600" : "text-red-500"
+						}`}
+					>
+						{result.type === "success" ? "🎉 " : "💥 "}
+						{result.message}
+						{typeof result.totalPoints === "number" && (
+							<p className='mt-2 text-base text-gray-600'>현재 포인트: {result.totalPoints}P</p>
+						)}
 					</div>
 				</div>
 			)}

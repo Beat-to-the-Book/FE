@@ -48,6 +48,7 @@ const MyPage = () => {
 	const [editingReading, setEditingReading] = useState(null);
 	const [points, setPoints] = useState(0);
 	const [pointsLoading, setPointsLoading] = useState(true);
+	const [throwableBooksCount, setThrowableBooksCount] = useState(0);
 	const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
 	const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth() + 1);
 
@@ -141,12 +142,14 @@ const MyPage = () => {
 					reportsResponse,
 					activeRentalsResponse,
 					pointsResponse,
+					throwableBooksResponse,
 				] = await Promise.all([
 					purchaseAPI.getHistory(),
 					rentalAPI.getHistory(),
 					reportAPI.getMyReports(),
 					rentalAPI.getActive().catch(() => ({ data: [] })), // 활성 대여가 없을 수 있음
 					pointsAPI.getMyPoints().catch(() => ({ data: { totalPoints: 0 } })),
+					pointsAPI.getMyBooks().catch(() => ({ data: [] })),
 				]);
 
 				// purchase history에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
@@ -188,12 +191,17 @@ const MyPage = () => {
 				setActiveRentals(activeRentalsWithImages);
 				setMyReports(reportsResponse.data);
 				setPoints(pointsResponse.data?.totalPoints || 0);
+				const throwableCount = (throwableBooksResponse.data || []).filter(
+					(book) => !book.thrown
+				).length;
+				setThrowableBooksCount(throwableCount);
 				setPointsLoading(false);
 				setLoading(false);
 			} catch (error) {
 				setError("데이터를 불러오는데 실패했습니다.");
 				setLoading(false);
 				setPointsLoading(false);
+				setThrowableBooksCount(0);
 			}
 		};
 
@@ -488,14 +496,18 @@ const MyPage = () => {
 
 	return (
 		<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-			<div className='flex items-center justify-between mb-6'>
+			<div className='flex flex-wrap items-center justify-between gap-3 mb-6'>
 				<h1 className='text-3xl font-bold text-gray-900'>마이페이지</h1>
-				{/* 포인트 표시 */}
-				<div className='flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-full border-2 border-yellow-200 shadow-md'>
-					<span className='text-yellow-500 text-xl'>💰</span>
-					<span className='text-gray-800 font-bold text-lg'>
-						{pointsLoading ? "로딩..." : `${points}P`}
-					</span>
+				<div className='flex items-center gap-3'>
+					<div className='px-3 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-sm text-primary font-semibold shadow-sm'>
+						던질 수 있는 책 {throwableBooksCount}권
+					</div>
+					<div className='flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-full border-2 border-yellow-200 shadow-md'>
+						<span className='text-yellow-500 text-xl'>💰</span>
+						<span className='text-gray-800 font-bold text-lg'>
+							{pointsLoading ? "로딩..." : `${points}P`}
+						</span>
+					</div>
 				</div>
 			</div>
 
