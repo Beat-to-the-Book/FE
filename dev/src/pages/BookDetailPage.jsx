@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
 import { purchaseAPI } from "../lib/api/purchase";
@@ -11,6 +11,7 @@ import RecommendedBooks from "../components/RecommendedBooks";
 import useCartStore from "../lib/store/cartStore";
 import EditReportModal from "../components/EditReportModal";
 import EditReviewModal from "../components/EditReviewModal";
+import Book3DPreviewModal from "../components/Book3DPreviewModal";
 
 // 임시 데이터
 const TEMP_REVIEWS = [
@@ -79,6 +80,27 @@ const BookDetailPage = () => {
 	const [selectedReview, setSelectedReview] = useState(null);
 	const [isReviewEditModalOpen, setIsReviewEditModalOpen] = useState(false);
 	const userIdString = userId !== null && userId !== undefined ? String(userId) : null;
+	const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+	const previewImages = useMemo(() => {
+		if (!book) return null;
+		return {
+			front: book.frontCoverImageUrl,
+			back: book.backCoverImageUrl,
+			left: book.leftCoverImageUrl,
+		};
+	}, [book]);
+
+	const handleOpenPreview = () => {
+		if (!book?.frontCoverImageUrl) {
+			alert("미리보기를 제공하지 않는 도서입니다.");
+			return;
+		}
+		setIsPreviewOpen(true);
+	};
+
+	const handleClosePreview = () => {
+		setIsPreviewOpen(false);
+	};
 
 	useEffect(() => {
 		if (Number.isNaN(bookIdNumber)) {
@@ -539,11 +561,19 @@ const BookDetailPage = () => {
 						{/* 책 표지 이미지 */}
 						<div className='md:w-2/5 bg-gray-50'>
 							<div className='p-8 flex items-center justify-center'>
-								<img
-									src={book.frontCoverImageUrl}
-									alt={book.title}
-									className='w-full max-w-sm rounded-lg shadow-xl'
-								/>
+								<button
+									type='button'
+									onClick={handleOpenPreview}
+									className='w-full max-w-sm rounded-lg shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30 transition-transform hover:-translate-y-1'
+									title='3D 미리보기 열기'
+								>
+									<img
+										src={book.frontCoverImageUrl}
+										alt={book.title}
+										className='w-full h-auto rounded-lg'
+									/>
+									<span className='sr-only'>3D 미리보기 열기</span>
+								</button>
 							</div>
 						</div>
 
@@ -972,6 +1002,15 @@ const BookDetailPage = () => {
 				}}
 				report={selectedReport}
 				onSuccess={handleEditSuccess}
+			/>
+			<Book3DPreviewModal
+				isOpen={isPreviewOpen && Boolean(previewImages?.front)}
+				onClose={handleClosePreview}
+				images={{
+					front: previewImages?.front,
+					back: previewImages?.back,
+					left: previewImages?.left,
+				}}
 			/>
 		</div>
 	);
