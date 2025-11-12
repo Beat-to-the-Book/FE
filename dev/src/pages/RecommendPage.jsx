@@ -3,15 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { recommendAPI } from "../lib/api/recommend";
 import { bookAPI } from "../lib/api/book";
 
-// 더미 추천 이유 데이터
-const DUMMY_REASONS = [
-	"추천 도서인 '달러 자산 1억으로 평생 월급 완성하라'는 사용자가 이미 읽은 '박곰희 연금 부자 수업'과 관련이 깊어요. 또한 '트렌드 코리아 2026'과 '시대예보: 경량문명의 탄생'과 같은 미래 전망에 관심이 있는 사용자에게 적합할 것으로 보입니다. 이 책은 ETF 투자와 관련된 내용",
-	"이 책은 사용자가 최근에 관심을 보인 경제/재테크 분야의 심화 내용을 다루고 있어요. 특히 '박곰희 연금 부자 수업'에서 다룬 내용을 실제 투자 전략으로 확장할 수 있는 실용적인 가이드를 제공합니다.",
-	"사용자의 독서 패턴을 분석한 결과, 미래 트렌드와 사회 변화에 대한 관심이 높습니다. 이 책은 현재 트렌드 분석과 미래 전망을 연결하는 인사이트를 제공하며, 독자들의 깊은 사고를 자극합니다.",
-	"이 책은 사용자가 선호하는 자기계발 분야의 새로운 관점을 제시합니다. 실용적인 조언과 함께 구체적인 실행 방법을 제시하여 독자들이 쉽게 적용할 수 있는 내용으로 구성되어 있습니다.",
-	"최근 본 책들과의 연관성을 분석한 결과, 이 책은 사용자의 관심사와 일치하는 주제를 다루고 있어요. 특히 현재 읽고 있는 책의 내용을 보완하고 심화할 수 있는 내용을 포함하고 있습니다.",
-];
-
 const RecommendPage = () => {
 	const navigate = useNavigate();
 	const [recommendedBooks, setRecommendedBooks] = useState([]);
@@ -23,26 +14,78 @@ const RecommendPage = () => {
 		const fetchRecommendations = async () => {
 			try {
 				setLoading(true);
+				setReasonsLoading(true);
 				// 추천 책 5개 가져오기
 				const response = await recommendAPI.getRecommendations();
-				const books = response.data.recommendedBooks?.slice(0, 5) || [];
+				const books = response.data?.recommendedBooks?.slice(0, 5) || [];
 
 				// 각 책의 상세 정보 가져오기
 				const bookDetails = await Promise.all(
 					books.map((book) => bookAPI.getById(book.bookId).then((res) => res.data))
 				);
 
-				// 더미 추천 이유 추가 (나중에 API 연동 시 제거)
-				const booksWithReasons = bookDetails.map((book, index) => ({
+				const booksWithReasons = bookDetails.map((book) => ({
 					...book,
-					reason: DUMMY_REASONS[index] || "이 책은 사용자의 독서 취향과 관심사에 맞춘 추천입니다.",
+					bookId: book.bookId ?? book.id,
+					reason: null,
 				}));
 
 				setRecommendedBooks(booksWithReasons);
 				setError("");
+
+				try {
+					const reasonsResponse = await recommendAPI.getRecommendationReasons();
+					const booksWithReason = reasonsResponse.data?.booksWithReason || [];
+					const reasonMap = new Map(
+						booksWithReason.map((item) => [
+							item.bookId,
+							{
+								...item,
+								frontCoverImageUrl: item.coverImageUrl,
+								bookId: item.bookId,
+							},
+						])
+					);
+
+					setRecommendedBooks((prevBooks) => {
+						const mapped = prevBooks.map((book) => {
+							const match = reasonMap.get(book.bookId ?? book.id);
+							if (!match) {
+								return book;
+							}
+
+							return {
+								...book,
+								title: match.title || book.title,
+								author: match.author || book.author,
+								frontCoverImageUrl: match.frontCoverImageUrl || book.frontCoverImageUrl,
+								reason: match.reason || book.reason,
+							};
+						});
+
+						const existingIds = new Set(mapped.map((book) => book.bookId ?? book.id));
+						const additional = booksWithReason
+							.filter((item) => !existingIds.has(item.bookId))
+							.map((item) => ({
+								id: item.bookId,
+								bookId: item.bookId,
+								title: item.title,
+								author: item.author,
+								frontCoverImageUrl: item.coverImageUrl,
+								reason: item.reason,
+							}));
+
+						return additional.length > 0 ? [...mapped, ...additional] : mapped;
+					});
+				} catch (reasonError) {
+					console.error("추천 이유 조회 에러:", reasonError);
+				} finally {
+					setReasonsLoading(false);
+				}
 			} catch (error) {
 				console.error("추천 책 조회 에러:", error);
 				setError("추천 책을 불러오는데 실패했습니다.");
+				setReasonsLoading(false);
 			} finally {
 				setLoading(false);
 			}
@@ -96,6 +139,19 @@ const RecommendPage = () => {
 				</div>
 
 				{/* 추천 도서 목록 */}
+				{reasonsLoading && (
+					<div className='mb-8'>
+						<div className='flex items-center justify-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-6 py-4 text-primary'>
+							<div className='flex items-center justify-center w-6 h-6'>
+								<div className='animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary'></div>
+							</div>
+							<span className='text-sm font-medium'>
+								추천 이유를 불러오는 중입니다. 잠시만 기다려주세요.
+							</span>
+						</div>
+					</div>
+				)}
+
 				{recommendedBooks.length === 0 ? (
 					<div className='text-center py-20'>
 						<div className='inline-block p-6 bg-gray-100 rounded-full mb-4'>
