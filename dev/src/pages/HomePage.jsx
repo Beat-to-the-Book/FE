@@ -248,9 +248,6 @@ const HomePage = () => {
 				<div className='flex-1 space-y-8 max-w-[calc(100%)]'>
 					<div className='flex justify-between items-center'>
 						<h2 className='text-2xl font-bold text-primary'>베스트셀러</h2>
-						<div className='text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full'>
-							{books.length}개의 책
-						</div>
 					</div>
 					<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6'>
 						{getCurrentPageBooks().map((book) => (
