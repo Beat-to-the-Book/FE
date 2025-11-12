@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
 import { purchaseAPI } from "../lib/api/purchase";
@@ -35,6 +35,7 @@ const MyPage = () => {
 	const [error, setError] = useState("");
 	const [purchasedBooks, setPurchasedBooks] = useState([]);
 	const [activeRentals, setActiveRentals] = useState([]);
+	const [rentalHistory, setRentalHistory] = useState([]);
 	const [combinedHistory, setCombinedHistory] = useState([]);
 	const [ownedBooks, setOwnedBooks] = useState([]);
 	const [myReports, setMyReports] = useState([]);
@@ -52,16 +53,35 @@ const MyPage = () => {
 	const [throwableBooksCount, setThrowableBooksCount] = useState(0);
 	const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
 	const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth() + 1);
+	const resolvedBookIdCacheRef = useRef(new Map());
 
 	const handleMonthChange = useCallback((year, month) => {
 		setCalendarYear(year);
 		setCalendarMonth(month);
 	}, []);
 
-	const activeRentalKeys = useMemo(
-		() => new Set(activeRentals.map((rental) => rental.rentalId || rental.id || rental.bookId)),
-		[activeRentals]
-	);
+	const getRentalKeyCandidates = useCallback((entry) => {
+		if (!entry) {
+			return [];
+		}
+		const rawCandidates = [
+			entry.rentalId,
+			entry.id,
+			entry.bookId,
+			entry.book?.id,
+			entry.book?.bookId,
+		];
+		const numericCandidates = rawCandidates
+			.map((value) => {
+				if (value === undefined || value === null) {
+					return null;
+				}
+				const parsed = Number(value);
+				return Number.isNaN(parsed) ? null : parsed;
+			})
+			.filter((value, index, array) => value !== null && array.indexOf(value) === index);
+		return numericCandidates;
+	}, []);
 
 	const uniqueBooksReadCount = useMemo(() => {
 		return new Set((readingRecords || []).map((record) => record.bookId)).size;
@@ -128,6 +148,124 @@ const MyPage = () => {
 		[]
 	);
 
+	const enrichRentals = useCallback(
+		async (rentals) =>
+			Promise.all(
+				(rentals || []).map(async (rental) => {
+					const result = { ...rental };
+					const candidateBookId =
+						rental.bookId ?? rental.id ?? rental.book?.id ?? rental.book?.bookId ?? null;
+
+					try {
+						if (candidateBookId) {
+							const bookDetail = await bookAPI.getById(candidateBookId);
+							const bookData = bookDetail.data ?? {};
+							result.bookId = bookData.id ?? bookData.bookId ?? candidateBookId;
+							result.frontCoverImageUrl =
+								result.frontCoverImageUrl ?? bookData.frontCoverImageUrl ?? null;
+							result.backCoverImageUrl =
+								result.backCoverImageUrl ?? bookData.backCoverImageUrl ?? null;
+							result.leftCoverImageUrl =
+								result.leftCoverImageUrl ?? bookData.leftCoverImageUrl ?? null;
+							result.author = result.author ?? bookData.author ?? rental.book?.author ?? null;
+							result.publisher =
+								result.publisher ?? bookData.publisher ?? rental.book?.publisher ?? null;
+							if (result.bookTitle === undefined || result.bookTitle === null) {
+								result.bookTitle = bookData.title ?? rental.title;
+							}
+						}
+					} catch (error) {
+						console.error(`책 ${candidateBookId} 정보 가져오기 실패:`, error);
+					}
+
+					if (!result.frontCoverImageUrl && rental.frontCoverImageUrl) {
+						result.frontCoverImageUrl = rental.frontCoverImageUrl;
+					}
+
+					return result;
+				})
+			),
+		[]
+	);
+
+	const resolveBookId = useCallback(async (item) => {
+		if (!item) {
+			return null;
+		}
+
+		const cache = resolvedBookIdCacheRef.current;
+		const numericCandidates = [item.bookId, item.id, item.book?.id, item.book?.bookId]
+			.map((value) => {
+				if (value === undefined || value === null) {
+					return null;
+				}
+				const parsed = Number(value);
+				return Number.isNaN(parsed) ? null : parsed;
+			})
+			.filter((value, index, array) => value !== null && array.indexOf(value) === index);
+
+		for (const candidate of numericCandidates) {
+			if (cache.has(candidate)) {
+				return cache.get(candidate);
+			}
+		}
+
+		for (const candidate of numericCandidates) {
+			if (!candidate) {
+				continue;
+			}
+			try {
+				const response = await bookAPI.getById(candidate);
+				const data = response.data ?? {};
+				const resolvedId = data.id ?? data.bookId ?? candidate;
+				cache.set(candidate, resolvedId);
+				return resolvedId;
+			} catch (error) {
+				continue;
+			}
+		}
+
+		const titleCandidates = [item.bookTitle, item.title, item.book?.title, item.name]
+			.map((value) => (typeof value === "string" ? value.trim() : ""))
+			.filter(Boolean);
+
+		for (const title of titleCandidates) {
+			const cacheKey = `title:${title}`;
+			if (cache.has(cacheKey)) {
+				return cache.get(cacheKey);
+			}
+
+			try {
+				const response = await bookAPI.search(title);
+				const results = Array.isArray(response.data) ? response.data : [];
+				const match =
+					results.find((book) => book.title === title) ??
+					results.find((book) => book.title?.includes(title));
+				if (match?.id) {
+					cache.set(cacheKey, match.id);
+					cache.set(match.id, match.id);
+					return match.id;
+				}
+			} catch (error) {
+				console.error("도서 검색 실패:", error);
+			}
+		}
+
+		return null;
+	}, []);
+
+	const handleNavigateToBook = useCallback(
+		async (item) => {
+			const resolvedId = await resolveBookId(item);
+			if (resolvedId) {
+				navigate(`/book/${resolvedId}`);
+				return;
+			}
+			alert("도서 정보를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.");
+		},
+		[navigate, resolveBookId]
+	);
+
 	useEffect(() => {
 		if (!isAuthenticated) {
 			navigate("/login");
@@ -158,50 +296,44 @@ const MyPage = () => {
 				const purchasedWithImages = await enrichPurchasedBooks(purchasedResponse.data);
 
 				// active rentals에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
-				const activeRentalsWithImages = await Promise.all(
-					(activeRentalsResponse.data || []).map(async (rental) => {
-						// 이미 이미지 URL이 있으면 그대로 사용
-						if (rental.frontCoverImageUrl) {
-							return rental;
-						}
-						// 없으면 bookId로 책 상세 정보 가져오기
-						try {
-							const bookId = rental.bookId;
-							if (bookId) {
-								const bookDetail = await bookAPI.getById(bookId);
-								return {
-									...rental,
-									frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
-									backCoverImageUrl: bookDetail.data.backCoverImageUrl,
-									leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
-								};
-							}
-						} catch (error) {
-							console.error(`책 ${rental.bookId} 정보 가져오기 실패:`, error);
-						}
-						return rental;
-					})
+				const activeRentalsWithImages = await enrichRentals(activeRentalsResponse.data || []);
+				const rentalHistoryWithImages = await enrichRentals(rentedResponse.data || []);
+				const activeKeys = new Set(
+					activeRentalsWithImages
+						.flatMap((rental) => getRentalKeyCandidates(rental))
+						.filter(Boolean)
 				);
+				const normalizedRentalHistory = rentalHistoryWithImages.map((rental) => {
+					const candidateKeys = getRentalKeyCandidates(rental);
+					const isActive =
+						candidateKeys.length > 0
+							? candidateKeys.some((key) => activeKeys.has(key))
+							: rental.isActive ?? false;
+					const isReturnedExplicit =
+						rental.isReturned !== undefined && rental.isReturned !== null
+							? Boolean(rental.isReturned)
+							: false;
+					const isReturned = isReturnedExplicit || !isActive;
+					return {
+						...rental,
+						isActive,
+						isReturned,
+					};
+				});
 
 				const processedPurchases = purchasedWithImages.map((purchase) => ({
 					...purchase,
 					source: "purchase",
 				}));
-				const rentalHistoryEntries = (rentedResponse.data || []).map((rental) => ({
+				const combinedRentalHistory = normalizedRentalHistory.map((rental) => ({
 					...rental,
 					source: "rental",
-					isActive: false,
 				}));
-				const activeRentalEntries = (activeRentalsWithImages || []).map((rental) => ({
-					...rental,
-					source: "rental",
-					isActive: true,
-				}));
-				const combinedRentalHistory = [...rentalHistoryEntries, ...activeRentalEntries];
 
 				setPurchasedBooks(processedPurchases);
 				setCombinedHistory(combinedRentalHistory);
 				setActiveRentals(activeRentalsWithImages);
+				setRentalHistory(normalizedRentalHistory);
 				setMyReports(reportsResponse.data);
 				setPoints(pointsResponse.data?.totalPoints || 0);
 				const myBooks = Array.isArray(myBooksResponse.data) ? myBooksResponse.data : [];
@@ -219,7 +351,7 @@ const MyPage = () => {
 		};
 
 		fetchData();
-	}, [enrichPurchasedBooks, isAuthenticated, navigate]);
+	}, [enrichPurchasedBooks, enrichRentals, isAuthenticated, navigate]);
 
 	// 독서 기록 조회
 	useEffect(() => {
@@ -412,33 +544,36 @@ const MyPage = () => {
 				rentalAPI.getActive().catch(() => ({ data: [] })),
 			]);
 
-			// active rentals에 이미지 URL 추가
-			const activeRentalsWithImages = await Promise.all(
-				(activeRentalsResponse.data || []).map(async (rental) => {
-					if (rental.frontCoverImageUrl) {
-						return rental;
-					}
-					try {
-						const bookId = rental.bookId;
-						if (bookId) {
-							const bookDetail = await bookAPI.getById(bookId);
-							return {
-								...rental,
-								frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
-								backCoverImageUrl: bookDetail.data.backCoverImageUrl,
-								leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
-							};
-						}
-					} catch (error) {
-						console.error(`책 ${rental.bookId} 정보 가져오기 실패:`, error);
-					}
-					return rental;
-				})
+			const updatedActiveRentals = await enrichRentals(activeRentalsResponse.data || []);
+			const updatedRentalHistory = await enrichRentals(rentedResponse.data || []);
+			const updatedActiveKeys = new Set(
+				updatedActiveRentals.flatMap((rental) => getRentalKeyCandidates(rental)).filter(Boolean)
 			);
+			const normalizedRentalHistory = updatedRentalHistory.map((rental) => {
+				const candidateKeys = getRentalKeyCandidates(rental);
+				const isActive =
+					candidateKeys.length > 0
+						? candidateKeys.some((key) => updatedActiveKeys.has(key))
+						: rental.isActive ?? false;
+				const isReturnedExplicit =
+					rental.isReturned !== undefined && rental.isReturned !== null
+						? Boolean(rental.isReturned)
+						: false;
+				const isReturned = isReturnedExplicit || !isActive;
+				return {
+					...rental,
+					isActive,
+					isReturned,
+				};
+			});
+			const combinedRentalHistory = normalizedRentalHistory.map((rental) => ({
+				...rental,
+				source: "rental",
+			}));
 
-			const uniqueRentedBooks = removeDuplicates(rentedResponse.data, "rentalDate");
-			// setRentedBooks(uniqueRentedBooks); // This line is removed
-			setActiveRentals(activeRentalsWithImages);
+			setActiveRentals(updatedActiveRentals);
+			setRentalHistory(normalizedRentalHistory);
+			setCombinedHistory(combinedRentalHistory);
 		} catch (error) {
 			console.error("반납 에러:", error);
 			if (error.response?.status === 401) {
@@ -851,7 +986,7 @@ const MyPage = () => {
 								<div
 									key={review.reviewId}
 									className='group bg-white rounded-lg shadow hover:shadow-lg p-5 cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
-									onClick={() => navigate(`/book/${review.bookId}`)}
+									onClick={() => handleNavigateToBook(review)}
 								>
 									<div className='flex justify-between items-start mb-3'>
 										<div className='flex-1'>
@@ -982,7 +1117,7 @@ const MyPage = () => {
 									<div
 										key={book.id || book.bookId}
 										className='group relative bg-white rounded-lg shadow hover:shadow-xl overflow-hidden cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
-										onClick={() => navigate(`/book/${book.bookId || book.id}`)}
+										onClick={() => handleNavigateToBook(book)}
 									>
 										<div className='relative'>
 											{book.frontCoverImageUrl ? (
@@ -1082,7 +1217,7 @@ const MyPage = () => {
 										<div className='p-6'>
 											<div className='flex gap-6'>
 												<div
-													onClick={() => navigate(`/book/${rental.bookId}`)}
+													onClick={() => handleNavigateToBook(rental)}
 													className='cursor-pointer'
 												>
 													{rental.frontCoverImageUrl ? (
@@ -1101,7 +1236,7 @@ const MyPage = () => {
 													<div className='flex justify-between items-start mb-3'>
 														<div>
 															<h3
-																onClick={() => navigate(`/book/${rental.bookId}`)}
+																onClick={() => handleNavigateToBook(rental)}
 																className='text-xl font-bold text-gray-900 mb-1 cursor-pointer hover:text-primary transition-colors'
 															>
 																{rental.title}
@@ -1173,33 +1308,26 @@ const MyPage = () => {
 			{/* 대여 이력 탭 */}
 			{activeTab === "rented" && (
 				<div>
-					{activeRentals.length > 0 ? (
+					{rentalHistory.length > 0 ? (
 						<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
-							{activeRentals.map((rental) => {
-								const rawDaysRemaining = rental.daysRemaining;
-								const isOverdueRaw = typeof rawDaysRemaining === "number" && rawDaysRemaining < 0;
-								const isUrgentRaw =
-									typeof rawDaysRemaining === "number" &&
-									rawDaysRemaining <= 3 &&
-									rawDaysRemaining >= 0;
-								const rentalKey = rental.rentalId || rental.id || rental.bookId;
-								const isCurrentlyActive = activeRentalKeys.has(rentalKey);
-								const daysLeft =
-									isCurrentlyActive && rental.returnDate
-										? Math.ceil((new Date(rental.returnDate) - new Date()) / (1000 * 60 * 60 * 24))
-										: null;
+							{rentalHistory.map((rental) => {
+								const daysRemaining =
+									typeof rental.daysRemaining === "number" ? rental.daysRemaining : null;
+								const isCurrentlyActive = Boolean(rental.isActive);
 								const isOverdue =
-									isCurrentlyActive && typeof daysLeft === "number" ? daysLeft < 0 : isOverdueRaw;
+									isCurrentlyActive && typeof daysRemaining === "number"
+										? daysRemaining < 0
+										: false;
 								const isUrgent =
-									isCurrentlyActive && typeof daysLeft === "number"
-										? daysLeft <= 3 && daysLeft >= 0
-										: isUrgentRaw;
+									isCurrentlyActive && typeof daysRemaining === "number"
+										? daysRemaining <= 3 && daysRemaining >= 0
+										: false;
 
 								return (
 									<div
-										key={rental.bookId}
+										key={`${rental.bookId}-${rental.rentalId || rental.id || "history"}`}
 										className='group bg-white rounded-lg shadow hover:shadow-xl overflow-hidden cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
-										onClick={() => navigate(`/book/${rental.bookId}`)}
+										onClick={() => handleNavigateToBook(rental)}
 									>
 										<div className='relative'>
 											<img
@@ -1222,7 +1350,7 @@ const MyPage = () => {
 													? isOverdue
 														? "연체"
 														: isUrgent
-														? `D-${daysLeft}`
+														? `D-${daysRemaining}`
 														: "대여중"
 													: "반납완료"}
 											</div>
@@ -1278,8 +1406,8 @@ const MyPage = () => {
 													>
 														{isCurrentlyActive
 															? `반납 예정: ${
-																	rental.returnDate
-																		? new Date(rental.returnDate).toLocaleDateString("ko-KR")
+																	rental.dueDate
+																		? new Date(rental.dueDate).toLocaleDateString("ko-KR")
 																		: "-"
 															  }`
 															: `반납 완료: ${
