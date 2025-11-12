@@ -42,6 +42,7 @@ const createApiInstance = (requiresAuth = false) => {
 				config.__retriedWithLocal = true;
 				config.baseURL = DEFAULT_LOCAL_API_URL;
 				instance.defaults.baseURL = DEFAULT_LOCAL_API_URL;
+
 				return instance(config);
 			}
 
