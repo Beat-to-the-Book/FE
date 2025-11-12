@@ -14,14 +14,14 @@ const PostPage = () => {
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const { isAuthenticated, userInfo, userId, setUserInfo } = useAuthStore();
 	const [isMyPost, setIsMyPost] = useState(false);
- 	const [comments, setComments] = useState([]);
- 	const [commentsLoading, setCommentsLoading] = useState(false);
- 	const [commentsError, setCommentsError] = useState("");
- 	const [newComment, setNewComment] = useState("");
- 	const [activeReplyId, setActiveReplyId] = useState(null);
- 	const [replyContents, setReplyContents] = useState({});
- 	const [editingCommentId, setEditingCommentId] = useState(null);
- 	const [editingCommentContent, setEditingCommentContent] = useState("");
+	const [comments, setComments] = useState([]);
+	const [commentsLoading, setCommentsLoading] = useState(false);
+	const [commentsError, setCommentsError] = useState("");
+	const [newComment, setNewComment] = useState("");
+	const [activeReplyId, setActiveReplyId] = useState(null);
+	const [replyContents, setReplyContents] = useState({});
+	const [editingCommentId, setEditingCommentId] = useState(null);
+	const [editingCommentContent, setEditingCommentContent] = useState("");
 
 	const currentUserId = userInfo?.userId ?? userId ?? null;
 	const currentUsername = userInfo?.username ?? null;
@@ -110,7 +110,8 @@ const PostPage = () => {
 
 	const updateOwnership = (postData) => {
 		const { ownerId, ownerUsername } = extractOwnerInfo(postData);
-		const normalizedCurrentId = currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
+		const normalizedCurrentId =
+			currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
 		const normalizedCurrentUsername = currentUsername ? String(currentUsername).trim() : null;
 
 		const matchesId = ownerId && normalizedCurrentId && ownerId === normalizedCurrentId;
@@ -130,7 +131,9 @@ const PostPage = () => {
 			const normalizedCurrentUsername = currentUsername ? String(currentUsername).trim() : null;
 			return (
 				(!!commentOwnerId && !!normalizedCurrentId && commentOwnerId === normalizedCurrentId) ||
-				(!!commentOwnerUsername && !!normalizedCurrentUsername && commentOwnerUsername === normalizedCurrentUsername)
+				(!!commentOwnerUsername &&
+					!!normalizedCurrentUsername &&
+					commentOwnerUsername === normalizedCurrentUsername)
 			);
 		},
 		[currentUserId, currentUsername]
@@ -280,10 +283,20 @@ const PostPage = () => {
 
 	const renderComment = useCallback(
 		(comment, depth = 0) => {
-			const { id, username, content, children = [], createdAt, updatedAt, deleted, edited } = comment;
+			const {
+				id,
+				username,
+				content,
+				children = [],
+				createdAt,
+				updatedAt,
+				deleted,
+				edited,
+			} = comment;
 			const isOwner = isMyComment(comment);
 			const displayDate = createdAt ? new Date(createdAt).toLocaleString("ko-KR") : "";
-			const updatedDate = updatedAt && updatedAt !== createdAt ? new Date(updatedAt).toLocaleString("ko-KR") : null;
+			const updatedDate =
+				updatedAt && updatedAt !== createdAt ? new Date(updatedAt).toLocaleString("ko-KR") : null;
 			const isReplyBoxOpen = activeReplyId === id;
 			const replyValue = replyContents[id] || "";
 			const isEditingThisComment = editingCommentId === id;
@@ -325,76 +338,91 @@ const PostPage = () => {
 												삭제
 											</button>
 										</>
-										)}
+									)}
 								</div>
 							)}
-					</div>
-					<div className='mt-3 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed'>
-						{deleted ? (
-							<span className='text-gray-400 italic'>삭제된 댓글입니다.</span>
-						) : isEditingThisComment ? (
-							<div className='space-y-2'>
+						</div>
+						<div className='mt-3 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed'>
+							{deleted ? (
+								<span className='text-gray-400 italic'>삭제된 댓글입니다.</span>
+							) : isEditingThisComment ? (
+								<div className='space-y-2'>
+									<textarea
+										className='w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30'
+										value={editingCommentContent}
+										onChange={(e) => setEditingCommentContent(e.target.value)}
+									/>
+									<div className='flex justify-end gap-2 text-xs'>
+										<button
+											onClick={handleCancelEditComment}
+											className='px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100'
+										>
+											취소
+										</button>
+										<button
+											onClick={() => handleUpdateComment(id)}
+											className='px-3 py-1 rounded-lg bg-primary text-white hover:bg-primary-dark'
+										>
+											수정 완료
+										</button>
+									</div>
+								</div>
+							) : (
+								<span>{content}</span>
+							)}
+						</div>
+						{!deleted && isReplyBoxOpen && (
+							<div className='mt-4 bg-white border border-primary/20 rounded-xl p-3 space-y-2'>
 								<textarea
 									className='w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30'
-									value={editingCommentContent}
-									onChange={(e) => setEditingCommentContent(e.target.value)}
+									placeholder='답글을 입력하세요'
+									value={replyValue}
+									onChange={(e) => handleReplyChange(id, e.target.value)}
 								/>
 								<div className='flex justify-end gap-2 text-xs'>
 									<button
-										onClick={handleCancelEditComment}
+										onClick={() => handleReplyClick(id)}
 										className='px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100'
 									>
 										취소
 									</button>
 									<button
-										onClick={() => handleUpdateComment(id)}
+										onClick={() => handleReplySubmit(id)}
 										className='px-3 py-1 rounded-lg bg-primary text-white hover:bg-primary-dark'
 									>
-										수정 완료
+										답글 작성
 									</button>
 								</div>
 							</div>
-						) : (
-							<span>{content}</span>
 						)}
 					</div>
-					{!deleted && isReplyBoxOpen && (
-						<div className='mt-4 bg-white border border-primary/20 rounded-xl p-3 space-y-2'>
-							<textarea
-								className='w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30'
-								placeholder='답글을 입력하세요'
-								value={replyValue}
-								onChange={(e) => handleReplyChange(id, e.target.value)}
-							/>
-							<div className='flex justify-end gap-2 text-xs'>
-								<button
-									onClick={() => handleReplyClick(id)}
-									className='px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100'
-								>
-									취소
-								</button>
-								<button
-									onClick={() => handleReplySubmit(id)}
-									className='px-3 py-1 rounded-lg bg-primary text-white hover:bg-primary-dark'
-								>
-									답글 작성
-								</button>
-							</div>
+					{children && children.length > 0 && (
+						<div className='mt-2 space-y-2'>
+							{children.map((child) => renderComment(child, depth + 1))}
 						</div>
 					)}
 				</div>
-				{children && children.length > 0 && (
-					<div className='mt-2 space-y-2'>
-						{children.map((child) => renderComment(child, depth + 1))}
-					</div>
-				)}
-			</div>
-		);
+			);
 		},
-		[activeReplyId, editingCommentContent, editingCommentId, handleCancelEditComment, handleReplyChange, handleReplyClick, handleReplySubmit, handleUpdateComment, handleDeleteComment, isMyComment, replyContents]
+		[
+			activeReplyId,
+			editingCommentContent,
+			editingCommentId,
+			handleCancelEditComment,
+			handleReplyChange,
+			handleReplyClick,
+			handleReplySubmit,
+			handleUpdateComment,
+			handleDeleteComment,
+			isMyComment,
+			replyContents,
+		]
 	);
 
-	const commentList = useMemo(() => comments.map((comment) => renderComment(comment, 0)), [comments, renderComment]);
+	const commentList = useMemo(
+		() => comments.map((comment) => renderComment(comment, 0)),
+		[comments, renderComment]
+	);
 
 	if (!post)
 		return (
