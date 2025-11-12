@@ -571,14 +571,15 @@ const MiniGamePage = () => {
 			// 성공 판정
 			if (!successRef.current && hasThrownRef.current) {
 				const pos = bookBody.position;
-				const xMin = -shelfWidth / 2;
-				const xMax = shelfWidth / 2;
+				const tolerance = 0.15;
+				const xMin = -shelfWidth / 2 - tolerance;
+				const xMax = shelfWidth / 2 + tolerance;
 				const y1 = 0;
 				const y2 = 0.1 + (shelfHeight - plankThickness);
-				const yMin = y1 + plankThickness / 2;
-				const yMax = y2 - plankThickness / 2;
-				const zMin = -7.8 - shelfDepth / 2;
-				const zMax = -7.8 + shelfDepth / 2;
+				const yMin = y1 + plankThickness / 2 - tolerance;
+				const yMax = y2 - plankThickness / 2 + tolerance;
+				const zMin = -7.8 - shelfDepth / 2 - tolerance;
+				const zMax = -7.8 + shelfDepth / 2 + tolerance;
 
 				if (
 					pos.x > xMin &&
