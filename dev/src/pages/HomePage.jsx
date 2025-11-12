@@ -247,7 +247,7 @@ const HomePage = () => {
 			<div className='flex gap-8'>
 				<div className='flex-1 space-y-8 max-w-[calc(100%)]'>
 					<div className='flex justify-between items-center'>
-						<h2 className='text-2xl font-bold text-primary'>도서 목록</h2>
+						<h2 className='text-2xl font-bold text-primary'>베스트셀러</h2>
 						<div className='text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full'>
 							{books.length}개의 책
 						</div>
