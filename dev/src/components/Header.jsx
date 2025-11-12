@@ -93,6 +93,7 @@ const Header = () => {
 		userInfo?.name ??
 		userInfo?.email ??
 		(userInfo?.userId ? `ID ${userInfo.userId}` : null);
+	const resolvedInitial = resolvedUsername ? resolvedUsername.charAt(0).toUpperCase() : null;
 
 	return (
 		<header className='bg-white shadow-sm border-b border-gray-100 sticky top-0 z-40'>
@@ -208,18 +209,24 @@ const Header = () => {
 										</span>
 									)}
 								</Link>
-								<div className='flex items-center gap-3'>
-									{resolvedUsername && (
-										<span className='text-sm font-medium text-gray-600'>
-											{resolvedUsername}님
-										</span>
-									)}
-									<button
-										onClick={handleLogout}
-										className='px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-all'
-									>
-										로그아웃
-									</button>
+								<div className='flex items-center'>
+									<div className='flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 backdrop-blur px-3 py-1 shadow-sm'>
+										{resolvedUsername && (
+											<>
+												<div className='w-7 h-7 rounded-full bg-primary text-white font-semibold flex items-center justify-center text-xs'>
+													{resolvedInitial}
+												</div>
+												<span className='text-sm font-medium text-gray-700'>{resolvedUsername}님</span>
+												<span className='text-gray-300 text-xs'>|</span>
+											</>
+										)}
+										<button
+											onClick={handleLogout}
+											className='px-2.5 py-1 text-xs font-semibold text-primary-dark bg-primary/10 hover:bg-primary/20 rounded-full transition-all'
+										>
+											로그아웃
+										</button>
+									</div>
 								</div>
 							</>
 						) : (
@@ -237,13 +244,13 @@ const Header = () => {
 								</Link>
 								<Link
 									to='/login'
-									className='px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-all'
+									className='px-4 py-2 rounded-full border border-primary/20 text-primary-dark bg-white/80 backdrop-blur font-medium transition-all hover:bg-primary/10 hover:border-primary/40 shadow-sm'
 								>
 									로그인
 								</Link>
 								<Link
 									to='/signup'
-									className='px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-all shadow-md hover:shadow-lg'
+									className='px-4 py-2 rounded-full bg-gradient-to-r from-primary to-primary-dark text-white font-semibold transition-all shadow-md hover:shadow-xl hover:-translate-y-0.5'
 								>
 									회원가입
 								</Link>
