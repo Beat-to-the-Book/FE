@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { bookAPI } from "../lib/api/book";
+import { authAPI } from "../lib/api/auth";
 import useAuthStore from "../lib/store/authStore";
 import useCartStore from "../lib/store/cartStore";
 import SearchResults from "./SearchResults";
 
 const Header = () => {
 	const navigate = useNavigate();
-	const { isAuthenticated, clearAuth } = useAuthStore();
+	const { isAuthenticated, clearAuth, userInfo, setUserInfo } = useAuthStore();
 	const { getTotalItems } = useCartStore();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [searchResults, setSearchResults] = useState([]);
@@ -60,6 +61,38 @@ const Header = () => {
 		clearAuth();
 		navigate("/login");
 	};
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const ensureUserInfo = async () => {
+			if (!isAuthenticated || userInfo) {
+				return;
+			}
+			try {
+				const response = await authAPI.getMe();
+				const data = response.data?.data ?? response.data;
+				if (isMounted && data) {
+					setUserInfo(data);
+				}
+			} catch (error) {
+				console.error("헤더 사용자 정보 조회 실패:", error);
+			}
+		};
+
+		ensureUserInfo();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [isAuthenticated, userInfo, setUserInfo]);
+
+	const resolvedUsername =
+		userInfo?.nickname ??
+		userInfo?.username ??
+		userInfo?.name ??
+		userInfo?.email ??
+		(userInfo?.userId ? `ID ${userInfo.userId}` : null);
 
 	return (
 		<header className='bg-white shadow-sm border-b border-gray-100 sticky top-0 z-40'>
@@ -175,12 +208,19 @@ const Header = () => {
 										</span>
 									)}
 								</Link>
-								<button
-									onClick={handleLogout}
-									className='px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-all'
-								>
-									로그아웃
-								</button>
+								<div className='flex items-center gap-3'>
+									{resolvedUsername && (
+										<span className='text-sm font-medium text-gray-600'>
+											{resolvedUsername}님
+										</span>
+									)}
+									<button
+										onClick={handleLogout}
+										className='px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-all'
+									>
+										로그아웃
+									</button>
+								</div>
 							</>
 						) : (
 							<>
