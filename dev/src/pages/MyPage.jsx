@@ -34,8 +34,8 @@ const MyPage = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [purchasedBooks, setPurchasedBooks] = useState([]);
-	const [rentedBooks, setRentedBooks] = useState([]);
 	const [activeRentals, setActiveRentals] = useState([]);
+	const [combinedHistory, setCombinedHistory] = useState([]);
 	const [myReports, setMyReports] = useState([]);
 	const [activeRentalsLoading, setActiveRentalsLoading] = useState(false);
 	const [myReviews, setMyReviews] = useState([]);
@@ -184,10 +184,31 @@ const MyPage = () => {
 
 				// 중복 제거 및 최신 기록만 유지
 				const uniquePurchasedBooks = removeDuplicates(purchasedWithImages, "purchaseDate");
-				const uniqueRentedBooks = removeDuplicates(rentedResponse.data, "rentalDate");
+				const rentalHistoryEntries = (rentedResponse.data || []).map((rental) => ({
+					...rental,
+					source: "rental",
+					isActive: false,
+				}));
+				const activeRentalEntries = (activeRentalsWithImages || []).map((rental) => ({
+					...rental,
+					source: "rental",
+					isActive: true,
+				}));
+				const rentalKey = (item) =>
+					item.rentalId ||
+					item.id ||
+					`${item.bookId || item.title}-${item.startDate || item.rentalDate || "unknown"}`;
+				const rentalMap = new Map();
+				[...rentalHistoryEntries, ...activeRentalEntries].forEach((entry) => {
+					const key = rentalKey(entry);
+					if (!rentalMap.has(key) || entry.isActive) {
+						rentalMap.set(key, entry);
+					}
+				});
+				const combinedRentalHistory = Array.from(rentalMap.values());
 
 				setPurchasedBooks(uniquePurchasedBooks);
-				setRentedBooks(uniqueRentedBooks);
+				setCombinedHistory(combinedRentalHistory);
 				setActiveRentals(activeRentalsWithImages);
 				setMyReports(reportsResponse.data);
 				setPoints(pointsResponse.data?.totalPoints || 0);
@@ -424,7 +445,7 @@ const MyPage = () => {
 			);
 
 			const uniqueRentedBooks = removeDuplicates(rentedResponse.data, "rentalDate");
-			setRentedBooks(uniqueRentedBooks);
+			// setRentedBooks(uniqueRentedBooks); // This line is removed
 			setActiveRentals(activeRentalsWithImages);
 		} catch (error) {
 			console.error("반납 에러:", error);
@@ -473,10 +494,36 @@ const MyPage = () => {
 
 	// 구매한 책 + 대여한 책 목록 (중복 제거)
 	// purchase/history의 id는 bookId를 의미
-	const allBooks = [...purchasedBooks, ...rentedBooks].filter(
-		(book, index, self) =>
-			index === self.findIndex((b) => (b.bookId || b.id) === (book.bookId || book.id))
-	);
+	const libraryItems = useMemo(() => {
+		const purchases = purchasedBooks.map((book) => ({
+			...book,
+			_entryType: "purchase",
+			_entryDate: book.purchaseDate ? new Date(book.purchaseDate) : null,
+		}));
+		const rentals = combinedHistory.map((book) => ({
+			...book,
+			_entryType: "rental",
+			_entryDate: book.rentalDate
+				? new Date(book.rentalDate)
+				: book.startDate
+				? new Date(book.startDate)
+				: book.createdAt
+				? new Date(book.createdAt)
+				: null,
+		}));
+		return [...purchases, ...rentals].sort((a, b) => {
+			if (!a._entryDate || !b._entryDate) return 0;
+			return b._entryDate - a._entryDate;
+		});
+	}, [purchasedBooks, combinedHistory]);
+
+	const allBooks = useMemo(() => {
+		const unique = libraryItems.filter(
+			(item, index, self) =>
+				index === self.findIndex((b) => (b.bookId || b.id) === (item.bookId || item.id))
+		);
+		return unique;
+	}, [libraryItems]);
 
 	if (loading) {
 		return (
@@ -553,10 +600,8 @@ const MyPage = () => {
 							<span className='text-xl'>📖</span>
 						</div>
 					</div>
-					<div className='text-2xl font-bold text-primary'>
-						{purchasedBooks.length + rentedBooks.length}
-					</div>
-					<p className='text-xs text-gray-500 mt-1'>구매 + 대여</p>
+					<div className='text-2xl font-bold text-primary'>{allBooks.length}</div>
+					<p className='text-xs text-gray-500 mt-1'>지금까지 구매 + 대여한 전체 도서</p>
 				</div>
 			</div>
 
@@ -928,24 +973,45 @@ const MyPage = () => {
 				</div>
 			)}
 
-			{/* 구매한 책 탭 */}
+			{/* 구매/대여한 책 탭 */}
 			{activeTab === "purchased" && (
 				<div>
-					{purchasedBooks.length > 0 ? (
+					{libraryItems.length > 0 ? (
 						<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
-							{purchasedBooks.map((book) => {
-								const isRefundRequested = book.status === "REFUND_REQUESTED";
+							{libraryItems.map((item) => {
+								const isPurchase = item._entryType === "purchase";
+								const isRefundRequested = isPurchase && item.status === "REFUND_REQUESTED";
+								const statusLabel = isPurchase
+									? isRefundRequested
+										? "환불 신청"
+										: "구매완료"
+									: item.isActive
+									? "대여중"
+									: "대여 완료";
+								const statusClass = isPurchase
+									? isRefundRequested
+										? "bg-orange-500 text-white"
+										: "bg-primary text-white"
+									: item.isActive
+									? "bg-emerald-500 text-white"
+									: "bg-gray-400 text-white";
+								const displayDate = isPurchase
+									? item.purchaseDate
+									: item.rentalDate || item.startDate || item.createdAt;
+								const dateLabel = isPurchase ? "구매일" : item.isActive ? "대여 시작" : "대여일";
+								const dueDate = !isPurchase ? item.dueDate || item.returnDate : null;
+								const key = `${item._entryType}-${item.id || item.rentalId || item.bookId}`;
 								return (
 									<div
-										key={book.id}
+										key={key}
 										className='group relative bg-white rounded-lg shadow hover:shadow-xl overflow-hidden cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
-										onClick={() => navigate(`/book/${book.bookId || book.id}`)}
+										onClick={() => navigate(`/book/${item.bookId || item.id}`)}
 									>
 										<div className='relative'>
-											{book.frontCoverImageUrl ? (
+											{item.frontCoverImageUrl ? (
 												<img
-													src={book.frontCoverImageUrl}
-													alt={book.bookTitle || book.title}
+													src={item.frontCoverImageUrl}
+													alt={item.bookTitle || item.title}
 													className='w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300'
 												/>
 											) : (
@@ -954,18 +1020,16 @@ const MyPage = () => {
 												</div>
 											)}
 											<div
-												className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${
-													isRefundRequested ? "bg-orange-500 text-white" : "bg-primary text-white"
-												}`}
+												className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold shadow-md ${statusClass}`}
 											>
-												{isRefundRequested ? "환불 신청" : "구매완료"}
+												{statusLabel}
 											</div>
 										</div>
 										<div className='p-4'>
 											<h3 className='font-bold text-base text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors'>
-												{book.bookTitle || book.title}
+												{item.bookTitle || item.title}
 											</h3>
-											<p className='text-sm text-gray-600 mb-3'>{book.author}</p>
+											<p className='text-sm text-gray-600 mb-3'>{item.author}</p>
 											<div className='space-y-2'>
 												<div className='flex items-center gap-1.5 text-xs text-gray-500'>
 													<svg
@@ -981,23 +1045,47 @@ const MyPage = () => {
 															d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'
 														/>
 													</svg>
-													{new Date(book.purchaseDate).toLocaleDateString("ko-KR")}
+													<span>
+														{dateLabel}:{" "}
+														{displayDate ? new Date(displayDate).toLocaleDateString("ko-KR") : "-"}
+													</span>
 												</div>
-												{!isRefundRequested && (
+												{!isPurchase && dueDate && (
+													<div className='flex items-center gap-1.5 text-xs text-gray-500'>
+														<svg
+															className='w-4 h-4 text-primary'
+															fill='none'
+															stroke='currentColor'
+															viewBox='0 0 24 24'
+														>
+															<path
+																strokeLinecap='round'
+																strokeLinejoin='round'
+																strokeWidth={2}
+																d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+															/>
+														</svg>
+														<span>
+															{item.isActive ? "반납 예정" : "반납일"}:{" "}
+															{new Date(dueDate).toLocaleDateString("ko-KR")}
+														</span>
+													</div>
+												)}
+												{isPurchase && !isRefundRequested && (
 													<button
 														onClick={(e) => {
 															e.stopPropagation();
-															handleRefund(book.id, e);
+															handleRefund(item.id, e);
 														}}
 														className='w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors'
 													>
 														환불 신청
 													</button>
 												)}
-												{isRefundRequested && book.refundReason && (
+												{isPurchase && isRefundRequested && item.refundReason && (
 													<div className='text-xs text-gray-600 bg-gray-50 p-2 rounded'>
 														<div className='font-medium mb-1'>환불 사유:</div>
-														<div className='text-gray-700'>{book.refundReason}</div>
+														<div className='text-gray-700'>{item.refundReason}</div>
 													</div>
 												)}
 											</div>
@@ -1009,8 +1097,10 @@ const MyPage = () => {
 					) : (
 						<div className='text-center py-16 bg-gray-50 rounded-lg border border-dashed border-gray-300'>
 							<div className='text-5xl mb-3 opacity-50'>📚</div>
-							<p className='text-base font-semibold text-gray-700 mb-1'>구매한 책이 없습니다</p>
-							<p className='text-sm text-gray-500'>마음에 드는 책을 구매해보세요</p>
+							<p className='text-base font-semibold text-gray-700 mb-1'>
+								구매/대여한 책이 없습니다
+							</p>
+							<p className='text-sm text-gray-500'>마음에 드는 책을 구매하거나 대여해보세요</p>
 						</div>
 					)}
 				</div>
@@ -1128,32 +1218,38 @@ const MyPage = () => {
 			{/* 대여 이력 탭 */}
 			{activeTab === "rented" && (
 				<div>
-					{rentedBooks.length > 0 ? (
+					{activeRentals.length > 0 ? (
 						<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'>
-							{rentedBooks.map((book) => {
-								const rentalKey = book.rentalId || book.id || book.bookId;
+							{activeRentals.map((rental) => {
+								const rawDaysRemaining = rental.daysRemaining;
+								const isOverdueRaw = typeof rawDaysRemaining === "number" && rawDaysRemaining < 0;
+								const isUrgentRaw =
+									typeof rawDaysRemaining === "number" &&
+									rawDaysRemaining <= 3 &&
+									rawDaysRemaining >= 0;
+								const rentalKey = rental.rentalId || rental.id || rental.bookId;
 								const isCurrentlyActive = activeRentalKeys.has(rentalKey);
 								const daysLeft =
-									isCurrentlyActive && book.returnDate
-										? Math.ceil((new Date(book.returnDate) - new Date()) / (1000 * 60 * 60 * 24))
+									isCurrentlyActive && rental.returnDate
+										? Math.ceil((new Date(rental.returnDate) - new Date()) / (1000 * 60 * 60 * 24))
 										: null;
-								const isOverdue = isCurrentlyActive && typeof daysLeft === "number" && daysLeft < 0;
+								const isOverdue =
+									isCurrentlyActive && typeof daysLeft === "number" ? daysLeft < 0 : isOverdueRaw;
 								const isUrgent =
-									isCurrentlyActive &&
-									typeof daysLeft === "number" &&
-									daysLeft <= 3 &&
-									daysLeft >= 0;
+									isCurrentlyActive && typeof daysLeft === "number"
+										? daysLeft <= 3 && daysLeft >= 0
+										: isUrgentRaw;
 
 								return (
 									<div
-										key={book.id}
+										key={rental.bookId}
 										className='group bg-white rounded-lg shadow hover:shadow-xl overflow-hidden cursor-pointer border border-gray-200 hover:border-primary/30 transition-all duration-200'
-										onClick={() => navigate(`/book/${book.id}`)}
+										onClick={() => navigate(`/book/${rental.bookId}`)}
 									>
 										<div className='relative'>
 											<img
-												src={book.frontCoverImageUrl}
-												alt={book.title}
+												src={rental.frontCoverImageUrl}
+												alt={rental.title}
 												className='w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300'
 											/>
 											<div
@@ -1178,9 +1274,9 @@ const MyPage = () => {
 										</div>
 										<div className='p-4'>
 											<h3 className='font-bold text-base text-gray-900 mb-1 line-clamp-2 group-hover:text-primary transition-colors'>
-												{book.title}
+												{rental.title}
 											</h3>
-											<p className='text-sm text-gray-600 mb-3'>{book.author}</p>
+											<p className='text-sm text-gray-600 mb-3'>{rental.author}</p>
 											<div className='space-y-1.5 text-xs text-gray-500'>
 												<div className='flex items-center gap-1.5'>
 													<svg
@@ -1196,7 +1292,7 @@ const MyPage = () => {
 															d='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
 														/>
 													</svg>
-													대여: {new Date(book.rentalDate).toLocaleDateString("ko-KR")}
+													대여: {new Date(rental.startDate).toLocaleDateString("ko-KR")}
 												</div>
 												<div className='flex items-center gap-1.5'>
 													<svg
@@ -1227,13 +1323,13 @@ const MyPage = () => {
 													>
 														{isCurrentlyActive
 															? `반납 예정: ${
-																	book.returnDate
-																		? new Date(book.returnDate).toLocaleDateString("ko-KR")
+																	rental.returnDate
+																		? new Date(rental.returnDate).toLocaleDateString("ko-KR")
 																		: "-"
 															  }`
 															: `반납 완료: ${
-																	book.returnDate
-																		? new Date(book.returnDate).toLocaleDateString("ko-KR")
+																	rental.returnDate
+																		? new Date(rental.returnDate).toLocaleDateString("ko-KR")
 																		: "-"
 															  }`}
 													</span>
