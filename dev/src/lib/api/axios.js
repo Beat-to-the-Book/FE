@@ -1,32 +1,58 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8082/api";
+const DEFAULT_LOCAL_API_URL = "http://localhost:8082/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_LOCAL_API_URL;
 
-// 기본 인스턴스 (토큰 불필요)
-const publicApi = axios.create({
-	baseURL: API_BASE_URL,
-	headers: {
-		"Content-Type": "application/json",
-	},
-});
+const shouldEnableLocalFallback = API_BASE_URL !== DEFAULT_LOCAL_API_URL;
 
-// 인증이 필요한 인스턴스
-const privateApi = axios.create({
-	baseURL: API_BASE_URL,
-	headers: {
-		"Content-Type": "application/json",
-	},
-});
+const createApiInstance = (requiresAuth = false) => {
+	const instance = axios.create({
+		baseURL: API_BASE_URL,
+		headers: {
+			"Content-Type": "application/json",
+		},
+	});
 
-// 요청 인터셉터를 사용하여 동적으로 토큰 설정
-privateApi.interceptors.request.use((config) => {
-	const authStorage = localStorage.getItem("auth-storage");
-	if (authStorage) {
-		const { state } = JSON.parse(authStorage);
-		if (state?.token) {
-			config.headers.Authorization = `Bearer ${state.token}`;
-		}
+	if (requiresAuth) {
+		instance.interceptors.request.use((config) => {
+			const authStorage = localStorage.getItem("auth-storage");
+			if (authStorage) {
+				const { state } = JSON.parse(authStorage);
+				if (state?.token) {
+					config.headers.Authorization = `Bearer ${state.token}`;
+				}
+			}
+			return config;
+		});
 	}
-	return config;
-});
+
+	instance.interceptors.response.use(
+		(response) => response,
+		async (error) => {
+			const config = error.config;
+
+			const shouldRetryWithLocal =
+				shouldEnableLocalFallback &&
+				config &&
+				!config.__retriedWithLocal &&
+				(!error.response || error.code === "ERR_NETWORK" || error.code === "ECONNREFUSED");
+
+			if (shouldRetryWithLocal) {
+				console.warn("[Axios] 기본 API에 연결하지 못했습니다. localhost로 재시도합니다.");
+				config.__retriedWithLocal = true;
+				config.baseURL = DEFAULT_LOCAL_API_URL;
+				instance.defaults.baseURL = DEFAULT_LOCAL_API_URL;
+				return instance(config);
+			}
+
+			return Promise.reject(error);
+		}
+	);
+
+	return instance;
+};
+
+const publicApi = createApiInstance(false);
+const privateApi = createApiInstance(true);
+
 export { publicApi, privateApi };
