@@ -293,7 +293,7 @@ const GroupPage = () => {
 		ensureGroupMetadata();
 	}, [groupInfo, groupId, isAuthenticated]);
 
-	const MEMBERS_PER_PAGE = 8;
+	const MEMBERS_PER_PAGE = 4;
 	const totalMemberPages = Math.max(1, Math.ceil(members.length / MEMBERS_PER_PAGE));
 
 	useEffect(() => {

@@ -81,6 +81,9 @@ const BookDetailPage = () => {
 	const [isReviewEditModalOpen, setIsReviewEditModalOpen] = useState(false);
 	const userIdString = userId !== null && userId !== undefined ? String(userId) : null;
 	const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+	const [reviewPage, setReviewPage] = useState(0);
+	const [reportPage, setReportPage] = useState(0);
+	const ITEMS_PER_PAGE = 4;
 	const previewImages = useMemo(() => {
 		if (!book) return null;
 		return {
@@ -101,6 +104,11 @@ const BookDetailPage = () => {
 	const handleClosePreview = () => {
 		setIsPreviewOpen(false);
 	};
+
+	useEffect(() => {
+		setReviewPage(0);
+		setReportPage(0);
+	}, [bookId]);
 
 	useEffect(() => {
 		if (Number.isNaN(bookIdNumber)) {
@@ -254,6 +262,11 @@ const BookDetailPage = () => {
 			fetchReviews();
 		}
 	}, [bookIdNumber, activeTab, isAuthenticated]);
+
+	useEffect(() => {
+		setReviewPage(0);
+		setReportPage(0);
+	}, [activeTab]);
 
 	const handleRental = async () => {
 		if (!isAuthenticated) {
@@ -534,6 +547,30 @@ const BookDetailPage = () => {
 	};
 
 	const formattedAverageRating = averageRating !== null ? Number(averageRating).toFixed(1) : null;
+	const totalReviewPages = Math.max(1, Math.ceil((reviews?.length ?? 0) / ITEMS_PER_PAGE));
+	const totalReportPages = Math.max(1, Math.ceil((reports?.length ?? 0) / ITEMS_PER_PAGE));
+
+	useEffect(() => {
+		if (reviewPage > totalReviewPages - 1) {
+			setReviewPage(Math.max(0, totalReviewPages - 1));
+		}
+	}, [reviewPage, totalReviewPages]);
+
+	useEffect(() => {
+		if (reportPage > totalReportPages - 1) {
+			setReportPage(Math.max(0, totalReportPages - 1));
+		}
+	}, [reportPage, totalReportPages]);
+
+	const paginatedReviews = useMemo(() => {
+		const start = reviewPage * ITEMS_PER_PAGE;
+		return reviews.slice(start, start + ITEMS_PER_PAGE);
+	}, [reviews, reviewPage]);
+
+	const paginatedReports = useMemo(() => {
+		const start = reportPage * ITEMS_PER_PAGE;
+		return reports.slice(start, start + ITEMS_PER_PAGE);
+	}, [reports, reportPage]);
 
 	if (loading) {
 		return (
@@ -783,7 +820,7 @@ const BookDetailPage = () => {
 									<div className='text-center py-8 text-gray-500'>아직 작성된 리뷰가 없습니다</div>
 								) : (
 									<div className='space-y-4'>
-										{reviews.map((review) => {
+										{paginatedReviews.map((review) => {
 											const ownerIdentifier =
 												review.userId ?? review.authorId ?? review.author ?? review.username;
 											const authorDisplay =
@@ -840,6 +877,29 @@ const BookDetailPage = () => {
 												</div>
 											);
 										})}
+										{totalReviewPages > 1 && (
+											<div className='flex items-center justify-between border-t border-gray-100 pt-4'>
+												<button
+													onClick={() => setReviewPage((prev) => Math.max(0, prev - 1))}
+													disabled={reviewPage === 0}
+													className='px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+												>
+													이전
+												</button>
+												<span className='text-sm text-gray-500'>
+													{reviewPage + 1} / {totalReviewPages}
+												</span>
+												<button
+													onClick={() =>
+														setReviewPage((prev) => Math.min(totalReviewPages - 1, prev + 1))
+													}
+													disabled={reviewPage >= totalReviewPages - 1}
+													className='px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+												>
+													다음
+												</button>
+											</div>
+										)}
 									</div>
 								)}
 							</div>
@@ -916,7 +976,7 @@ const BookDetailPage = () => {
 									</div>
 								) : (
 									<div className='space-y-4'>
-										{reports.map((report) => {
+										{paginatedReports.map((report) => {
 											const isMyReport = myReports.some((myReport) => myReport.id === report.id);
 											return (
 												<div
@@ -977,6 +1037,29 @@ const BookDetailPage = () => {
 												</div>
 											);
 										})}
+										{totalReportPages > 1 && (
+											<div className='flex items-center justify-between border-t border-gray-100 pt-4'>
+												<button
+													onClick={() => setReportPage((prev) => Math.max(0, prev - 1))}
+													disabled={reportPage === 0}
+													className='px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+												>
+													이전
+												</button>
+												<span className='text-sm text-gray-500'>
+													{reportPage + 1} / {totalReportPages}
+												</span>
+												<button
+													onClick={() =>
+														setReportPage((prev) => Math.min(totalReportPages - 1, prev + 1))
+													}
+													disabled={reportPage >= totalReportPages - 1}
+													className='px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'
+												>
+													다음
+												</button>
+											</div>
+										)}
 									</div>
 								)}
 							</div>
