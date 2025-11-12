@@ -1,9 +1,6 @@
 import axios from "axios";
 
-const DEFAULT_LOCAL_API_URL = "http://localhost:8082/api";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_LOCAL_API_URL;
-
-const shouldEnableLocalFallback = API_BASE_URL !== DEFAULT_LOCAL_API_URL;
+const API_BASE_URL = "http://43.203.132.110:8082/api";
 
 const createApiInstance = (requiresAuth = false) => {
 	const instance = axios.create({
@@ -25,29 +22,6 @@ const createApiInstance = (requiresAuth = false) => {
 			return config;
 		});
 	}
-
-	instance.interceptors.response.use(
-		(response) => response,
-		async (error) => {
-			const config = error.config;
-
-			const shouldRetryWithLocal =
-				shouldEnableLocalFallback &&
-				config &&
-				!config.__retriedWithLocal &&
-				(!error.response || error.code === "ERR_NETWORK" || error.code === "ECONNREFUSED");
-
-			if (shouldRetryWithLocal) {
-				console.warn("[Axios] 기본 API에 연결하지 못했습니다. localhost로 재시도합니다.");
-				config.__retriedWithLocal = true;
-				config.baseURL = DEFAULT_LOCAL_API_URL;
-				instance.defaults.baseURL = DEFAULT_LOCAL_API_URL;
-				return instance(config);
-			}
-
-			return Promise.reject(error);
-		}
-	);
 
 	return instance;
 };
