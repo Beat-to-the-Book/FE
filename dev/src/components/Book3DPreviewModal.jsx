@@ -102,22 +102,22 @@ const Book3DPreviewModal = ({ isOpen, onClose, images }) => {
 							gl={{ antialias: true, alpha: true }}
 						>
 							<color attach='background' args={["transparent"]} />
-							<fog attach='fog' args={["#f1f5f9", 18, 32]} />
-							<ambientLight intensity={0.6} color='#f0f9ff' />
-							<directionalLight position={[7, 8, 4]} intensity={0.85} color='#fefce8' castShadow />
+							<fog attach='fog' args={["#f8fafc", 18, 32]} />
+							<ambientLight intensity={0.58} color='#ffffff' />
+							<directionalLight position={[7, 9, 4]} intensity={0.92} color='#fff4d6' castShadow />
 							<spotLight
-								position={[-4, 7.5, -5]}
-								intensity={0.45}
-								angle={0.9}
+								position={[-4.5, 7.5, -5]}
+								intensity={0.38}
+								angle={0.92}
 								penumbra={0.4}
-								color='#bfdbfe'
+								color='#e0f2ff'
 							/>
-							<pointLight position={[0.6, 3.5, 1.8]} intensity={0.5} color='#fde68a' />
-							<pointLight position={[-1, 2.5, -2]} intensity={0.25} color='#60a5fa' />
+							<pointLight position={[0.8, 3.6, 2]} intensity={5} color='#f8fafc' />
+							<pointLight position={[-1.2, 2.4, -2]} intensity={0.22} color='#f8fafc' />
 							<BookModel front={front} back={back} left={left} />
 							<mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
 								<planeGeometry args={[20, 20]} />
-								<meshStandardMaterial color='#f1f5f9' metalness={0.08} roughness={0.88} />
+								<meshStandardMaterial color='#f8fafc' metalness={0.08} roughness={0.88} />
 							</mesh>
 							<OrbitControls
 								enablePan={false}

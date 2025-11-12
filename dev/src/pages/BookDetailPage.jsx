@@ -560,11 +560,11 @@ const BookDetailPage = () => {
 					<div className='md:flex'>
 						{/* 책 표지 이미지 */}
 						<div className='md:w-2/5 bg-gray-50'>
-							<div className='p-8 flex items-center justify-center'>
+							<div className='relative p-8 flex items-center justify-center'>
 								<button
 									type='button'
 									onClick={handleOpenPreview}
-									className='w-full max-w-sm rounded-lg shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30 transition-transform hover:-translate-y-1'
+									className='group relative w-full max-w-sm rounded-lg shadow-xl focus:outline-none focus:ring-4 focus:ring-primary/30 transition-transform hover:-translate-y-1'
 									title='3D 미리보기 열기'
 								>
 									<img
@@ -573,6 +573,17 @@ const BookDetailPage = () => {
 										className='w-full h-auto rounded-lg'
 									/>
 									<span className='sr-only'>3D 미리보기 열기</span>
+									<span className='absolute bottom-4 right-4 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-primary-dark shadow-lg border border-primary/10 transition-all group-hover:bg-primary group-hover:text-white group-hover:border-primary group-focus-visible:bg-primary group-focus-visible:text-white group-focus-visible:border-primary'>
+										<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+											<path
+												strokeLinecap='round'
+												strokeLinejoin='round'
+												strokeWidth='1.8'
+												d='M4 7l8-4 8 4m-16 0v6l8 4m-8-4 8 4m0-6 8-4m-8 4v6m0-6 8-4m0 0v6l-8 4'
+											/>
+										</svg>
+										<span>3D 미리보기</span>
+									</span>
 								</button>
 							</div>
 						</div>
