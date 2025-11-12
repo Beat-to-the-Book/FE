@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { communityAPI } from "../lib/api/community";
 import { authAPI } from "../lib/api/auth";
@@ -14,13 +14,52 @@ const PostPage = () => {
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const { isAuthenticated, userInfo, userId, setUserInfo } = useAuthStore();
 	const [isMyPost, setIsMyPost] = useState(false);
+ 	const [comments, setComments] = useState([]);
+ 	const [commentsLoading, setCommentsLoading] = useState(false);
+ 	const [commentsError, setCommentsError] = useState("");
+ 	const [newComment, setNewComment] = useState("");
+ 	const [activeReplyId, setActiveReplyId] = useState(null);
+ 	const [replyContents, setReplyContents] = useState({});
+ 	const [editingCommentId, setEditingCommentId] = useState(null);
+ 	const [editingCommentContent, setEditingCommentContent] = useState("");
 
 	const currentUserId = userInfo?.userId ?? userId ?? null;
 	const currentUsername = userInfo?.username ?? null;
 
+	const fetchComments = useCallback(async () => {
+		if (!groupId || !postId) return;
+		setCommentsLoading(true);
+		setCommentsError("");
+		try {
+			const response = await communityAPI.getCommentsTree(groupId, postId);
+			setComments(response.data || []);
+		} catch (error) {
+			console.error("댓글 로딩 실패:", error);
+			setCommentsError("댓글을 불러오는데 실패했습니다.");
+		} finally {
+			setCommentsLoading(false);
+		}
+	}, [groupId, postId]);
+
+	const loadPost = useCallback(async () => {
+		try {
+			const response = await communityAPI.getPost(groupId, postId);
+			setPost(response.data);
+			setEditedTitle(response.data.title);
+			setEditedContent(response.data.content);
+			updateOwnership(response.data);
+		} catch (error) {
+			console.error("게시글 로딩 실패:", error);
+		}
+	}, [groupId, postId]);
+
 	useEffect(() => {
 		loadPost();
-	}, [groupId, postId]);
+	}, [groupId, postId, loadPost]);
+
+	useEffect(() => {
+		fetchComments();
+	}, [fetchComments]);
 
 	useEffect(() => {
 		const ensureUserInfo = async () => {
@@ -40,18 +79,6 @@ const PostPage = () => {
 
 		ensureUserInfo();
 	}, [isAuthenticated, userInfo, setUserInfo]);
-
-	const loadPost = async () => {
-		try {
-			const response = await communityAPI.getPost(groupId, postId);
-			setPost(response.data);
-			setEditedTitle(response.data.title);
-			setEditedContent(response.data.content);
-			updateOwnership(response.data);
-		} catch (error) {
-			console.error("게시글 로딩 실패:", error);
-		}
-	};
 
 	const extractOwnerInfo = (postData) => {
 		if (!postData) {
@@ -93,6 +120,22 @@ const PostPage = () => {
 		setIsMyPost(matchesId || matchesName);
 	};
 
+	const isMyComment = useCallback(
+		(comment) => {
+			const commentOwnerId =
+				comment.userId !== undefined && comment.userId !== null ? String(comment.userId) : null;
+			const commentOwnerUsername = comment.username ? String(comment.username).trim() : null;
+			const normalizedCurrentId =
+				currentUserId !== null && currentUserId !== undefined ? String(currentUserId) : null;
+			const normalizedCurrentUsername = currentUsername ? String(currentUsername).trim() : null;
+			return (
+				(!!commentOwnerId && !!normalizedCurrentId && commentOwnerId === normalizedCurrentId) ||
+				(!!commentOwnerUsername && !!normalizedCurrentUsername && commentOwnerUsername === normalizedCurrentUsername)
+			);
+		},
+		[currentUserId, currentUsername]
+	);
+
 	useEffect(() => {
 		if (post) {
 			updateOwnership(post);
@@ -128,6 +171,230 @@ const PostPage = () => {
 			alert("게시글 삭제에 실패했습니다. 다시 시도해주세요.");
 		}
 	};
+
+	const handleAddComment = async () => {
+		const content = newComment.trim();
+		if (!content) {
+			alert("댓글 내용을 입력해주세요.");
+			return;
+		}
+		if (!isAuthenticated) {
+			alert("댓글을 작성하려면 로그인해야 합니다.");
+			return;
+		}
+		try {
+			await communityAPI.createComment(groupId, postId, { content });
+			setNewComment("");
+			await fetchComments();
+		} catch (error) {
+			console.error("댓글 작성 실패:", error);
+			alert("댓글 작성에 실패했습니다. 다시 시도해주세요.");
+		}
+	};
+
+	const handleReplyClick = (commentId) => {
+		if (activeReplyId === commentId) {
+			setActiveReplyId(null);
+			setReplyContents((prev) => {
+				const updated = { ...prev };
+				delete updated[commentId];
+				return updated;
+			});
+		} else {
+			setActiveReplyId(commentId);
+			setReplyContents((prev) => ({ ...prev, [commentId]: prev[commentId] || "" }));
+		}
+	};
+
+	const handleReplyChange = (commentId, value) => {
+		setReplyContents((prev) => ({ ...prev, [commentId]: value }));
+	};
+
+	const handleReplySubmit = async (commentId) => {
+		if (!isAuthenticated) {
+			alert("댓글을 작성하려면 로그인해야 합니다.");
+			return;
+		}
+		const content = (replyContents[commentId] || "").trim();
+		if (!content) {
+			alert("댓글 내용을 입력해주세요.");
+			return;
+		}
+		try {
+			await communityAPI.createReply(groupId, postId, {
+				parentId: commentId,
+				content,
+			});
+			setReplyContents((prev) => {
+				const updated = { ...prev };
+				delete updated[commentId];
+				return updated;
+			});
+			setActiveReplyId(null);
+			await fetchComments();
+		} catch (error) {
+			console.error("대댓글 작성 실패:", error);
+			alert("대댓글 작성에 실패했습니다. 다시 시도해주세요.");
+		}
+	};
+
+	const handleEditComment = (commentId, content) => {
+		setEditingCommentId(commentId);
+		setEditingCommentContent(content || "");
+	};
+
+	const handleCancelEditComment = () => {
+		setEditingCommentId(null);
+		setEditingCommentContent("");
+	};
+
+	const handleUpdateComment = async (commentId) => {
+		const content = editingCommentContent.trim();
+		if (!content) {
+			alert("댓글 내용을 입력해주세요.");
+			return;
+		}
+		try {
+			await communityAPI.updateComment(groupId, postId, commentId, { content });
+			setEditingCommentId(null);
+			setEditingCommentContent("");
+			await fetchComments();
+		} catch (error) {
+			console.error("댓글 수정 실패:", error);
+			alert("댓글 수정에 실패했습니다. 다시 시도해주세요.");
+		}
+	};
+
+	const handleDeleteComment = async (commentId) => {
+		if (!window.confirm("정말로 이 댓글을 삭제하시겠습니까?")) {
+			return;
+		}
+		try {
+			await communityAPI.deleteComment(groupId, postId, commentId);
+			await fetchComments();
+		} catch (error) {
+			console.error("댓글 삭제 실패:", error);
+			alert("댓글 삭제에 실패했습니다. 다시 시도해주세요.");
+		}
+	};
+
+	const renderComment = useCallback(
+		(comment, depth = 0) => {
+			const { id, username, content, children = [], createdAt, updatedAt, deleted, edited } = comment;
+			const isOwner = isMyComment(comment);
+			const displayDate = createdAt ? new Date(createdAt).toLocaleString("ko-KR") : "";
+			const updatedDate = updatedAt && updatedAt !== createdAt ? new Date(updatedAt).toLocaleString("ko-KR") : null;
+			const isReplyBoxOpen = activeReplyId === id;
+			const replyValue = replyContents[id] || "";
+			const isEditingThisComment = editingCommentId === id;
+
+			return (
+				<div key={id} className='border-l border-gray-100 pl-4 ml-4 mt-6'>
+					<div className='bg-gray-50 rounded-xl p-4 shadow-sm'>
+						<div className='flex items-start justify-between gap-4'>
+							<div>
+								<div className='flex items-center gap-2 text-sm font-semibold text-gray-700'>
+									<span>{username || "알 수 없는 사용자"}</span>
+									{edited && <span className='text-xs text-primary'>수정됨</span>}
+								</div>
+								<div className='text-xs text-gray-400 mt-1'>
+									{displayDate}
+									{updatedDate && <span className='ml-2'>(수정: {updatedDate})</span>}
+								</div>
+							</div>
+							{!deleted && (
+								<div className='flex items-center gap-2 text-xs text-gray-500'>
+									<button
+										onClick={() => handleReplyClick(id)}
+										className='hover:text-primary transition-all'
+									>
+										답글
+									</button>
+									{isOwner && (
+										<>
+											<button
+												onClick={() => handleEditComment(id, content)}
+												className='hover:text-primary transition-all'
+											>
+												수정
+											</button>
+											<button
+												onClick={() => handleDeleteComment(id)}
+												className='hover:text-red-500 transition-all'
+											>
+												삭제
+											</button>
+										</>
+										)}
+								</div>
+							)}
+					</div>
+					<div className='mt-3 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed'>
+						{deleted ? (
+							<span className='text-gray-400 italic'>삭제된 댓글입니다.</span>
+						) : isEditingThisComment ? (
+							<div className='space-y-2'>
+								<textarea
+									className='w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30'
+									value={editingCommentContent}
+									onChange={(e) => setEditingCommentContent(e.target.value)}
+								/>
+								<div className='flex justify-end gap-2 text-xs'>
+									<button
+										onClick={handleCancelEditComment}
+										className='px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100'
+									>
+										취소
+									</button>
+									<button
+										onClick={() => handleUpdateComment(id)}
+										className='px-3 py-1 rounded-lg bg-primary text-white hover:bg-primary-dark'
+									>
+										수정 완료
+									</button>
+								</div>
+							</div>
+						) : (
+							<span>{content}</span>
+						)}
+					</div>
+					{!deleted && isReplyBoxOpen && (
+						<div className='mt-4 bg-white border border-primary/20 rounded-xl p-3 space-y-2'>
+							<textarea
+								className='w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30'
+								placeholder='답글을 입력하세요'
+								value={replyValue}
+								onChange={(e) => handleReplyChange(id, e.target.value)}
+							/>
+							<div className='flex justify-end gap-2 text-xs'>
+								<button
+									onClick={() => handleReplyClick(id)}
+									className='px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100'
+								>
+									취소
+								</button>
+								<button
+									onClick={() => handleReplySubmit(id)}
+									className='px-3 py-1 rounded-lg bg-primary text-white hover:bg-primary-dark'
+								>
+									답글 작성
+								</button>
+							</div>
+						</div>
+					)}
+				</div>
+				{children && children.length > 0 && (
+					<div className='mt-2 space-y-2'>
+						{children.map((child) => renderComment(child, depth + 1))}
+					</div>
+				)}
+			</div>
+		);
+		},
+		[activeReplyId, editingCommentContent, editingCommentId, handleCancelEditComment, handleReplyChange, handleReplyClick, handleReplySubmit, handleUpdateComment, handleDeleteComment, isMyComment, replyContents]
+	);
+
+	const commentList = useMemo(() => comments.map((comment) => renderComment(comment, 0)), [comments, renderComment]);
 
 	if (!post)
 		return (
@@ -233,19 +500,40 @@ const PostPage = () => {
 			<div className='bg-white p-8 rounded-2xl shadow-lg border border-gray-100'>
 				<h2 className='text-xl font-bold text-gray-900 mb-6'>댓글</h2>
 
+				{commentsError && (
+					<div className='mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-600 text-sm border border-red-100'>
+						{commentsError}
+					</div>
+				)}
+
 				<div className='mb-6'>
 					<textarea
 						className='w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-light focus:ring-2 focus:ring-primary-light/20 transition-all resize-none min-h-[100px]'
-						placeholder='댓글을 작성하세요'
+						placeholder={isAuthenticated ? "댓글을 작성하세요" : "댓글을 작성하려면 로그인하세요"}
+						value={newComment}
+						onChange={(e) => setNewComment(e.target.value)}
+						disabled={!isAuthenticated}
 					/>
 					<div className='flex justify-end mt-3'>
-						<button className='px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark font-semibold shadow-md hover:shadow-lg transition-all'>
+						<button
+							onClick={handleAddComment}
+							disabled={!isAuthenticated}
+							className='px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark font-semibold shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:cursor-not-allowed'
+						>
 							댓글 작성
 						</button>
 					</div>
 				</div>
 
-				<div className='text-center py-8 text-gray-500'>아직 작성된 댓글이 없습니다</div>
+				{commentsLoading ? (
+					<div className='flex justify-center py-12'>
+						<div className='animate-spin rounded-full h-10 w-10 border-3 border-primary border-t-transparent'></div>
+					</div>
+				) : comments.length === 0 ? (
+					<div className='text-center py-8 text-gray-500'>아직 작성된 댓글이 없습니다</div>
+				) : (
+					<div className='space-y-4'>{commentList}</div>
+				)}
 			</div>
 
 			{showDeleteModal && (
