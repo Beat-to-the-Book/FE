@@ -362,7 +362,25 @@ const CartPage = () => {
 								<div className='flex-1'>
 									<h3 className='font-semibold text-lg text-gray-900 mb-1'>{item.title}</h3>
 									<p className='text-gray-600 text-sm mb-2'>{item.author}</p>
-									<p className='text-primary font-bold text-xl'>{item.price.toLocaleString()}원</p>
+									<p className='text-primary font-bold text-xl mb-2'>{item.price.toLocaleString()}원</p>
+									<div className='flex flex-wrap gap-2 text-xs text-gray-500'>
+										<span className='inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary font-medium'>
+											구매 재고
+											<strong className='text-primary-dark'>
+												{item.purchaseStock !== undefined && item.purchaseStock !== null
+													? `${item.purchaseStock}권`
+													: "-"}
+											</strong>
+										</span>
+										<span className='inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary-light/30 text-secondary-dark font-medium'>
+											대여 재고
+											<strong className='text-secondary-dark'>
+												{item.rentalStock !== undefined && item.rentalStock !== null
+													? `${item.rentalStock}권`
+													: "-"}
+											</strong>
+										</span>
+									</div>
 								</div>
 
 								{/* 수량 조절 및 삭제 */}

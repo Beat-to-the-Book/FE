@@ -190,8 +190,8 @@ const BookDetailPage = () => {
 		};
 	}, [bookId, initBehavior, updateScrollDepth, logBehavior]);
 
-useEffect(() => {
-	const fetchReviews = async () => {
+	useEffect(() => {
+		const fetchReviews = async () => {
 			if (Number.isNaN(bookIdNumber)) {
 				setReviews([]);
 				setAverageRating(null);
@@ -200,38 +200,38 @@ useEffect(() => {
 				return;
 			}
 
-		if (!isAuthenticated) {
-			setReviews([]);
-			setAverageRating(null);
-			setReviewsError("리뷰는 로그인 후 확인할 수 있습니다.");
-			setReviewsLoading(false);
-			return;
-		}
-
-		try {
-			setReviewsLoading(true);
-			const response = await reviewAPI.getBookReviews(bookIdNumber);
-			setReviews(response.data.reviews || []);
-			setAverageRating(response.data.averageRating ?? null);
-			setReviewsError("");
-		} catch (error) {
-			console.error("리뷰 조회 에러:", error);
-			if (error.response?.status === 404) {
-				setReviewsError("존재하지 않는 책입니다.");
-			} else if (error.response?.status === 401) {
-				setReviewsError("로그인이 필요합니다.");
-			} else {
-				setReviewsError("리뷰를 불러오는데 실패했습니다.");
+			if (!isAuthenticated) {
+				setReviews([]);
+				setAverageRating(null);
+				setReviewsError("리뷰는 로그인 후 확인할 수 있습니다.");
+				setReviewsLoading(false);
+				return;
 			}
-		} finally {
-			setReviewsLoading(false);
-		}
-	};
 
-	if (activeTab === "reviews") {
-		fetchReviews();
-	}
-}, [bookIdNumber, activeTab, isAuthenticated]);
+			try {
+				setReviewsLoading(true);
+				const response = await reviewAPI.getBookReviews(bookIdNumber);
+				setReviews(response.data.reviews || []);
+				setAverageRating(response.data.averageRating ?? null);
+				setReviewsError("");
+			} catch (error) {
+				console.error("리뷰 조회 에러:", error);
+				if (error.response?.status === 404) {
+					setReviewsError("존재하지 않는 책입니다.");
+				} else if (error.response?.status === 401) {
+					setReviewsError("로그인이 필요합니다.");
+				} else {
+					setReviewsError("리뷰를 불러오는데 실패했습니다.");
+				}
+			} finally {
+				setReviewsLoading(false);
+			}
+		};
+
+		if (activeTab === "reviews") {
+			fetchReviews();
+		}
+	}, [bookIdNumber, activeTab, isAuthenticated]);
 
 	const handleRental = async () => {
 		if (!isAuthenticated) {
@@ -511,7 +511,7 @@ useEffect(() => {
 		}
 	};
 
-const formattedAverageRating = averageRating !== null ? Number(averageRating).toFixed(1) : null;
+	const formattedAverageRating = averageRating !== null ? Number(averageRating).toFixed(1) : null;
 
 	if (loading) {
 		return (
@@ -599,6 +599,24 @@ const formattedAverageRating = averageRating !== null ? Number(averageRating).to
 										{book.price.toLocaleString()}원
 									</div>
 								</div>
+								<div className='grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6'>
+									<div className='border border-primary/20 rounded-xl px-4 py-3 flex items-center justify-between bg-white shadow-sm'>
+										<div className='text-sm text-gray-600 font-medium'>대여 재고</div>
+										<div className='text-lg font-semibold text-primary'>
+											{book.rentalStock !== undefined && book.rentalStock !== null
+												? `${book.rentalStock}권`
+												: "-"}
+										</div>
+									</div>
+									<div className='border border-primary/20 rounded-xl px-4 py-3 flex items-center justify-between bg-white shadow-sm'>
+										<div className='text-sm text-gray-600 font-medium'>구매 재고</div>
+										<div className='text-lg font-semibold text-primary'>
+											{book.purchaseStock !== undefined && book.purchaseStock !== null
+												? `${book.purchaseStock}권`
+												: "-"}
+										</div>
+									</div>
+								</div>
 							</div>
 
 							{/* 버튼 그룹 */}
@@ -662,7 +680,9 @@ const formattedAverageRating = averageRating !== null ? Number(averageRating).to
 									<div>
 										<div className='text-sm text-gray-500 mb-2'>평균 평점</div>
 										<div className='flex items-baseline gap-3'>
-											<span className='text-4xl font-bold text-primary'>{formattedAverageRating}</span>
+											<span className='text-4xl font-bold text-primary'>
+												{formattedAverageRating}
+											</span>
 											<span className='text-sm text-gray-400'>/ 5.0</span>
 										</div>
 									</div>
