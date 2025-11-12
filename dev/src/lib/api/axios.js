@@ -1,8 +1,10 @@
 import axios from "axios";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8082/api";
+
 // 기본 인스턴스 (토큰 불필요)
 const publicApi = axios.create({
-	baseURL: "http://localhost:8082/api",
+	baseURL: API_BASE_URL,
 	headers: {
 		"Content-Type": "application/json",
 	},
@@ -10,7 +12,7 @@ const publicApi = axios.create({
 
 // 인증이 필요한 인스턴스
 const privateApi = axios.create({
-	baseURL: "http://localhost:8082/api",
+	baseURL: API_BASE_URL,
 	headers: {
 		"Content-Type": "application/json",
 	},
