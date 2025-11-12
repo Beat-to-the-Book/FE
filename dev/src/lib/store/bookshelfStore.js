@@ -126,8 +126,12 @@ const useBookshelfStore = create((set, get) => ({
 	/**
 	 * 장식품 배치 업데이트
 	 */
-	setDecorsByFloor: (decorsByFloor) => {
-		set({ decorsByFloor });
+	setDecorsByFloor: (updater) => {
+		if (typeof updater === "function") {
+			set((state) => ({ decorsByFloor: updater(state.decorsByFloor) }));
+		} else {
+			set({ decorsByFloor: updater });
+		}
 	},
 
 	/**
