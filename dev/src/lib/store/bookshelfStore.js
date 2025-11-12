@@ -17,6 +17,9 @@ const useBookshelfStore = create((set, get) => ({
 		7: [],
 	},
 
+	// 데이터 존재 여부
+	hasExistingData: false,
+
 	// 로딩 상태
 	isLoading: false,
 
@@ -39,6 +42,7 @@ const useBookshelfStore = create((set, get) => ({
 			if (data && data.decorations) {
 				set({
 					decorsByFloor: data.decorations,
+					hasExistingData: true,
 					lastSaved: data.updatedAt,
 					isLoading: false,
 				});
@@ -55,6 +59,7 @@ const useBookshelfStore = create((set, get) => ({
 						7: [],
 					},
 					isLoading: false,
+					hasExistingData: false,
 				});
 			}
 		} catch (error) {
@@ -73,6 +78,7 @@ const useBookshelfStore = create((set, get) => ({
 						7: [],
 					},
 					isLoading: false,
+					hasExistingData: false,
 					error: null,
 				});
 			} else {
@@ -88,7 +94,7 @@ const useBookshelfStore = create((set, get) => ({
 	 * 책장 데이터 저장
 	 */
 	saveBookshelfData: async () => {
-		const { decorsByFloor } = get();
+		const { decorsByFloor, hasExistingData } = get();
 		set({ isLoading: true, error: null });
 
 		try {
@@ -96,10 +102,13 @@ const useBookshelfStore = create((set, get) => ({
 				decorations: decorsByFloor,
 			};
 
-			const response = await bookshelfAPI.updateBookshelfData(payload);
+			const response = hasExistingData
+				? await bookshelfAPI.updateBookshelfData(payload)
+				: await bookshelfAPI.saveBookshelfData(payload);
 
 			set({
 				isLoading: false,
+				hasExistingData: true,
 				lastSaved: new Date().toISOString(),
 			});
 

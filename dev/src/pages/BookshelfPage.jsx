@@ -1,12 +1,11 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, Stage } from "@react-three/drei";
 import { DoubleSide, TextureLoader } from "three";
 import * as THREE from "three";
-import { purchaseAPI } from "../lib/api/purchase";
-import { rentalAPI } from "../lib/api/rental";
 import { pointsAPI } from "../lib/api/points";
 import { bookAPI } from "../lib/api/book";
+import { bookshelfAPI } from "../lib/api/bookshelf";
 import useBookshelfStore from "../lib/store/bookshelfStore";
 
 const FLOOR_MIN = 1;
@@ -19,7 +18,7 @@ const X_MAX = SHELF_HALF - SHELF_MARGIN_X; // 우측 경계
 // 장식/책 Z 영역 분리
 const DECOR_Z_MIN = -0.35;
 const DECOR_Z_MAX = 0.35;
-const BOOK_BASE_Z = 0.1;
+const BOOK_BASE_Z = 0.05;
 const BOOK_ACTIVE_Z = 0.28;
 
 function clamp(value, min, max) {
@@ -334,6 +333,10 @@ export default function BookshelfPage() {
 	const [showHelp, setShowHelp] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [saveMessage, setSaveMessage] = useState("");
+	const [decorationCounts, setDecorationCounts] = useState({ 1: 0, 2: 0, 3: 0 });
+	const [decorationCountsLoading, setDecorationCountsLoading] = useState(true);
+	const [isBuying, setIsBuying] = useState(false);
+	const [buyError, setBuyError] = useState("");
 
 	// 책 데이터: API에서 로드
 	const [books, setBooks] = useState([]);
@@ -350,102 +353,170 @@ export default function BookshelfPage() {
 		3: 10, // 별 장식
 	};
 
-	// 컴포넌트 마운트 시 책장 데이터와 책 데이터 로드
-	useEffect(() => {
-		// 책장 장식품 데이터 로드
-		loadBookshelfData();
-
-		// 책 데이터 로드
-		const loadBooks = async () => {
-			try {
-				const [purchaseRes, rentalRes] = await Promise.all([
-					purchaseAPI.getHistory(),
-					rentalAPI.getHistory(),
-				]);
-
-				// purchase history에 이미지 URL이 없으면 bookId로 책 상세 정보 가져오기
-				// purchase/history의 id 필드는 bookId를 의미함
-				const purchasesWithImages = await Promise.all(
-					(purchaseRes.data || []).map(async (book) => {
-						const bookId = book.bookId || book.id; // purchase/history의 id는 bookId
-						// 이미 이미지 URL이 있으면 그대로 사용
-						if (book.frontCoverImageUrl) {
-							return {
-								...book,
-								id: bookId, // id를 bookId로 사용
-								bookId: bookId,
-								color: "#8b4513",
-							};
-						}
-						// 없으면 bookId로 책 상세 정보 가져오기
-						try {
-							if (bookId) {
-								const bookDetail = await bookAPI.getById(bookId);
-								return {
-									...book,
-									id: bookId, // id를 bookId로 사용
-									bookId: bookId,
-									title: book.bookTitle || book.title || bookDetail.data.title,
-									frontCoverImageUrl: bookDetail.data.frontCoverImageUrl,
-									backCoverImageUrl: bookDetail.data.backCoverImageUrl,
-									leftCoverImageUrl: bookDetail.data.leftCoverImageUrl,
-									author: bookDetail.data.author || book.author,
-									publisher: bookDetail.data.publisher || book.publisher,
-									color: "#8b4513",
-								};
-							}
-						} catch (error) {
-							console.error(`책 ${bookId} 정보 가져오기 실패:`, error);
-						}
+	const loadBooks = useCallback(async () => {
+		setBooksLoading(true);
+		try {
+			const response = await pointsAPI.getMyBooks();
+			const ownedBooks = Array.isArray(response.data) ? response.data : [];
+			const normalized = await Promise.all(
+				ownedBooks.map(async (book) => {
+					const bookId = book.bookId || book.id;
+					if (!bookId) {
 						return {
 							...book,
-							id: bookId, // id를 bookId로 사용
-							bookId: bookId,
-							color: "#8b4513",
+							id: bookId,
+							bookId,
+							title: book.title || book.bookTitle,
+							color: book.color || "#8b4513",
 						};
-					})
-				);
+					}
 
-				// rental history는 이미지 URL이 있으므로 그대로 사용 (필드명 확인)
-				const rentals = (rentalRes.data || []).map((book) => ({
-					...book,
-					id: book.id || book.bookId,
-					title: book.title || book.bookTitle,
-					color: "#8b4513",
-				}));
+					const hasCover = Boolean(
+						book.frontCoverImageUrl || book.backCoverImageUrl || book.leftCoverImageUrl
+					);
+					if (hasCover) {
+						return {
+							...book,
+							id: bookId,
+							bookId,
+							title: book.bookTitle || book.title,
+							color: book.color || "#8b4513",
+						};
+					}
 
-				const combined = [...purchasesWithImages, ...rentals];
-				setBooks(combined);
-				setBooksLoading(false);
-			} catch (error) {
-				console.error("책 데이터 로드 실패:", error);
-				setBooksLoading(false);
-			}
-		};
-
-		loadBooks();
-
-		// 포인트 조회
-		pointsAPI
-			.getMyPoints()
-			.then((response) => {
-				setPoints(response.data.totalPoints || 0);
-				setPointsLoading(false);
-			})
-			.catch((error) => {
-				console.error("포인트 조회 실패:", error);
-				setPointsLoading(false);
-			});
-	}, [loadBookshelfData]);
+					try {
+						const detail = await bookAPI.getById(bookId);
+						const detailData = detail.data || {};
+						return {
+							...book,
+							id: bookId,
+							bookId,
+							title: book.bookTitle || book.title || detailData.title,
+							frontCoverImageUrl: detailData.frontCoverImageUrl || book.frontCoverImageUrl,
+							backCoverImageUrl: detailData.backCoverImageUrl || book.backCoverImageUrl,
+							leftCoverImageUrl: detailData.leftCoverImageUrl || book.leftCoverImageUrl,
+							author: detailData.author || book.author,
+							publisher: detailData.publisher || book.publisher,
+							color: book.color || "#8b4513",
+						};
+					} catch (error) {
+						console.error(`책 ${bookId} 정보 가져오기 실패:`, error);
+						return {
+							...book,
+							id: bookId,
+							bookId,
+							title: book.bookTitle || book.title,
+							color: book.color || "#8b4513",
+						};
+					}
+				})
+			);
+			setBooks(normalized);
+		} catch (error) {
+			console.error("책 데이터 로드 실패:", error);
+		} finally {
+			setBooksLoading(false);
+		}
+	}, []);
 
 	// 포인트 새로고침 함수
-	const refreshPoints = async () => {
+	const refreshPoints = useCallback(async () => {
+		setPointsLoading(true);
 		try {
 			const response = await pointsAPI.getMyPoints();
 			setPoints(response.data.totalPoints || 0);
 		} catch (error) {
 			console.error("포인트 조회 실패:", error);
+		} finally {
+			setPointsLoading(false);
 		}
+	}, []);
+
+	const refreshDecorationCounts = useCallback(async () => {
+		setDecorationCountsLoading(true);
+		try {
+			const response = await bookshelfAPI.getDecorationCounts();
+			const counts = response.data?.decorationCounts || {};
+			setDecorationCounts({
+				1: counts["1"] ?? counts[1] ?? 0,
+				2: counts["2"] ?? counts[2] ?? 0,
+				3: counts["3"] ?? counts[3] ?? 0,
+			});
+		} catch (error) {
+			console.error("장식품 보유 수량 조회 실패:", error);
+		} finally {
+			setDecorationCountsLoading(false);
+		}
+	}, []);
+
+	// 컴포넌트 마운트 시 책장 데이터와 책 데이터 로드
+	useEffect(() => {
+		loadBookshelfData();
+		loadBooks();
+		refreshPoints();
+		refreshDecorationCounts();
+	}, [loadBookshelfData, loadBooks, refreshPoints, refreshDecorationCounts]);
+
+	const handleBuyDecoration = async (decorationType) => {
+		const price = DECO_PRICES[decorationType];
+		if (pointsLoading) {
+			return;
+		}
+		if ((points ?? 0) < price) {
+			alert(`포인트가 부족합니다. 필요한 포인트: ${price}P`);
+			return;
+		}
+		setBuyError("");
+		setIsBuying(true);
+		try {
+			const response = await bookshelfAPI.buyDecoration(decorationType);
+			const data = response.data || {};
+			setDecorationCounts((prev) => ({
+				...prev,
+				[decorationType]: data.totalCount ?? data.purchasedCount ?? prev[decorationType] ?? 0,
+			}));
+			if (typeof data.remainingPoints === "number") {
+				setPoints(data.remainingPoints);
+			} else {
+				await refreshPoints();
+			}
+		} catch (error) {
+			console.error("장식품 구매 실패:", error);
+			const message = error.response?.data?.message || "장식품 구매에 실패했습니다.";
+			setBuyError(message);
+			alert(message);
+		} finally {
+			setIsBuying(false);
+			refreshDecorationCounts();
+		}
+	};
+
+	const handlePlaceDecoration = (decorationType) => {
+		if (decorationCountsLoading) {
+			alert("장식품 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+			return;
+		}
+		if ((availableDecorationCounts[decorationType] ?? 0) <= 0) {
+			alert("보유 중인 장식이 없습니다. 장식품을 먼저 구매해주세요.");
+			return;
+		}
+
+		const id = Date.now();
+		const color = decorationType === 1 ? "#ff7eb3" : decorationType === 2 ? "#7ec8ff" : "#8affc1";
+		const y = getShelfY(floor);
+		setDecorsByFloor((prev) => ({
+			...prev,
+			[floor]: [
+				...(prev[floor] || []),
+				{
+					id,
+					type: decorationType,
+					color,
+					position: [0, y, (DECOR_Z_MIN + DECOR_Z_MAX) / 2],
+					rotationY: 0,
+				},
+			],
+		}));
 	};
 
 	// MiniGamePage 비율(1.5:1:0.2)을 축소 적용 + 90도 회전 후 가로 길이(BOOK_DEPTH) 기준 간격
@@ -458,15 +529,16 @@ export default function BookshelfPage() {
 	);
 
 	const booksLaidOut = useMemo(() => {
+		const ordered = [...books].reverse();
 		let results = [];
 		let fl = 1;
 		let idx = 0;
 		const totalWidth = MAX_BOOKS_PER_SHELF * BOOK_DEPTH + (MAX_BOOKS_PER_SHELF - 1) * BOOK_GAP;
 		const startX = -totalWidth / 2;
-		books.forEach((bk) => {
+		ordered.forEach((bk) => {
 			const y = getShelfY(fl) + BOOK_HEIGHT / 2;
 			const x = startX + idx * (BOOK_DEPTH + BOOK_GAP) + BOOK_DEPTH / 2;
-			results.push({ ...bk, position: [x, y, BOOK_BASE_Z], floor: fl });
+			results.push({ ...bk, position: [x, y, BOOK_BASE_Z - 0.05], floor: fl });
 			idx++;
 			if (idx >= MAX_BOOKS_PER_SHELF) {
 				idx = 0;
@@ -476,6 +548,30 @@ export default function BookshelfPage() {
 		return results;
 	}, [books]);
 
+	const placedDecorationCounts = useMemo(() => {
+		const counts = { 1: 0, 2: 0, 3: 0 };
+		Object.values(decorsByFloor || {}).forEach((list) => {
+			(list || []).forEach((item) => {
+				if (item?.type && counts.hasOwnProperty(item.type)) {
+					counts[item.type] = (counts[item.type] || 0) + 1;
+				}
+			});
+		});
+		return counts;
+	}, [decorsByFloor]);
+
+	const availableDecorationCounts = useMemo(() => {
+		return {
+			1: Math.max(0, (decorationCounts[1] ?? 0) - (placedDecorationCounts[1] ?? 0)),
+			2: Math.max(0, (decorationCounts[2] ?? 0) - (placedDecorationCounts[2] ?? 0)),
+			3: Math.max(0, (decorationCounts[3] ?? 0) - (placedDecorationCounts[3] ?? 0)),
+		};
+	}, [decorationCounts, placedDecorationCounts]);
+
+	const selectedDecorationPrice = DECO_PRICES[selectedDeco];
+	const canPlaceSelected = (availableDecorationCounts[selectedDeco] ?? 0) > 0;
+	const isPurchaseDisabled = isBuying || pointsLoading || (points ?? 0) < selectedDecorationPrice;
+
 	const [activeBookId, setActiveBookId] = useState(null);
 
 	// 자동 저장 기능 (디바운스)
@@ -484,7 +580,7 @@ export default function BookshelfPage() {
 			if (decorsByFloor) {
 				handleSave();
 			}
-		}, 2000); // 2초 후 자동 저장
+		}, 60000); // 60초 후 자동 저장
 
 		return () => clearTimeout(timer);
 	}, [decorsByFloor]);
@@ -674,9 +770,9 @@ export default function BookshelfPage() {
 			</div>
 
 			{/* 포인트 표시 */}
-			<div className='absolute top-3 right-20 z-10'>
+			<div className='absolute top-3 left-4 z-10'>
 				<div className='px-4 py-2 rounded-full bg-white shadow flex items-center gap-2'>
-					<span className='text-yellow-500 text-lg'>⭐</span>
+					<span className='text-yellow-500 text-lg'>💰</span>
 					<span className='text-gray-700 font-semibold'>
 						{pointsLoading ? "로딩..." : `${points}P`}
 					</span>
@@ -694,7 +790,7 @@ export default function BookshelfPage() {
 						<li>층 전환: 카메라가 해당 층 선반을 향하고, 모든 층 장식이 보임</li>
 						<li>현재 층의 장식만 클릭/드래그/조작 가능</li>
 						<li>장식품은 현재 층의 선반 범위 내에서만 이동 가능</li>
-						<li className='text-blue-600 font-medium'>변경사항은 2초 후 자동 저장됩니다</li>
+						<li className='text-blue-600 font-medium'>변경사항은 60초 마다 자동 저장됩니다</li>
 					</ul>
 				</div>
 			)}
@@ -767,7 +863,7 @@ export default function BookshelfPage() {
 								position={[
 									bk.position[0],
 									bk.position[1],
-									activeBookId === bk.id ? BOOK_ACTIVE_Z : BOOK_BASE_Z,
+									activeBookId === bk.id ? BOOK_ACTIVE_Z : bk.position[2],
 								]}
 								isActive={activeBookId === bk.id}
 								onClick={() => setActiveBookId((cur) => (cur === bk.id ? null : bk.id))}
@@ -790,72 +886,66 @@ export default function BookshelfPage() {
 				/>
 			</Canvas>
 
-			{/* 장식 선택 (MVP: 더미 버튼) */}
-			<div className='absolute bottom-28 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white/80 rounded-full px-3 py-2 shadow'>
-				<button
-					className={`px-3 py-1 rounded-full text-sm ${
-						selectedDeco === 1 ? "bg-pink-400 text-white" : "bg-pink-200 hover:bg-pink-300"
-					}`}
-					onClick={() => setSelectedDeco(1)}
-				>
-					1번 장식
-				</button>
-				<button
-					className={`px-3 py-1 rounded-full text-sm ${
-						selectedDeco === 2 ? "bg-blue-400 text-white" : "bg-blue-200 hover:bg-blue-300"
-					}`}
-					onClick={() => setSelectedDeco(2)}
-				>
-					피규어
-				</button>
-				<button
-					className={`px-3 py-1 rounded-full text-sm ${
-						selectedDeco === 3 ? "bg-green-400 text-white" : "bg-green-200 hover:bg-green-300"
-					}`}
-					onClick={() => setSelectedDeco(3)}
-				>
-					별
-				</button>
-				<button
-					className={`px-3 py-1 rounded-full text-sm ${
-						points >= DECO_PRICES[selectedDeco]
-							? "bg-amber-200 hover:bg-amber-300"
-							: "bg-gray-300 text-gray-500 cursor-not-allowed"
-					}`}
-					disabled={points < DECO_PRICES[selectedDeco]}
-					onClick={async () => {
-						const price = DECO_PRICES[selectedDeco];
-						if (points < price) {
-							alert(`포인트가 부족합니다.\n필요한 포인트: ${price}P\n현재 포인트: ${points}P`);
-							return;
-						}
-
-						// 포인트 차감 (백엔드에서 처리할 수도 있지만, 일단 프론트엔드에서만 처리)
-						// 실제로는 구매 API를 호출해야 할 수 있음
-						const id = Date.now();
-						const color =
-							selectedDeco === 1 ? "#ff7eb3" : selectedDeco === 2 ? "#7ec8ff" : "#8affc1";
-						const y = getShelfY(floor);
-						setDecorsByFloor((prev) => ({
-							...prev,
-							[floor]: [
-								...(prev[floor] || []),
-								{
-									id,
-									type: selectedDeco,
-									color,
-									position: [0, y, (DECOR_Z_MIN + DECOR_Z_MAX) / 2],
-									rotationY: 0,
-								},
-							],
-						}));
-
-						// 포인트 차감 (실제로는 백엔드 API를 호출해야 할 수 있음)
-						setPoints((prev) => prev - price);
-					}}
-				>
-					배치하기 ({DECO_PRICES[selectedDeco]}P)
-				</button>
+			{/* 장식 선택 및 구매/배치 컨트롤 */}
+			<div className='absolute bottom-28 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 bg-white/85 rounded-2xl px-4 py-3 shadow-lg'>
+				<div className='flex gap-2'>
+					<button
+						className={`px-3 py-1 rounded-full text-sm ${
+							selectedDeco === 1 ? "bg-pink-500 text-white" : "bg-pink-200 hover:bg-pink-300"
+						}`}
+						onClick={() => setSelectedDeco(1)}
+					>
+						다각형 구
+					</button>
+					<button
+						className={`px-3 py-1 rounded-full text-sm ${
+							selectedDeco === 2 ? "bg-blue-500 text-white" : "bg-blue-200 hover:bg-blue-300"
+						}`}
+						onClick={() => setSelectedDeco(2)}
+					>
+						피규어
+					</button>
+					<button
+						className={`px-3 py-1 rounded-full text-sm ${
+							selectedDeco === 3 ? "bg-green-500 text-white" : "bg-green-200 hover:bg-green-300"
+						}`}
+						onClick={() => setSelectedDeco(3)}
+					>
+						별
+					</button>
+				</div>
+				<div className='text-xs text-gray-600 text-center min-w-[200px]'>
+					{decorationCountsLoading
+						? "장식 정보 불러오는 중..."
+						: `보유 ${decorationCounts[selectedDeco] ?? 0}개 · 배치 가능 ${
+								availableDecorationCounts[selectedDeco] ?? 0
+						  }개`}
+				</div>
+				<div className='flex gap-2'>
+					<button
+						className={`px-4 py-2 rounded-full text-sm font-medium shadow ${
+							isPurchaseDisabled
+								? "bg-gray-300 text-gray-500 cursor-not-allowed"
+								: "bg-amber-300 hover:bg-amber-400 text-gray-800"
+						}`}
+						disabled={isPurchaseDisabled}
+						onClick={() => handleBuyDecoration(selectedDeco)}
+					>
+						{isBuying ? "구매 중..." : `구매하기 (${selectedDecorationPrice}P)`}
+					</button>
+					<button
+						className={`px-4 py-2 rounded-full text-sm font-medium shadow ${
+							canPlaceSelected
+								? "bg-primary text-white hover:bg-primary-dark"
+								: "bg-gray-300 text-gray-500 cursor-not-allowed"
+						}`}
+						disabled={!canPlaceSelected}
+						onClick={() => handlePlaceDecoration(selectedDeco)}
+					>
+						배치하기
+					</button>
+				</div>
+				{buyError && <div className='text-xs text-red-600'>{buyError}</div>}
 			</div>
 
 			{/* 선택한 장식 컨트롤 */}

@@ -12,6 +12,16 @@ export const bookshelfAPI = {
 	getBookshelfData: () => privateApi.get("/bookshelf"),
 
 	/**
+	 * 장식품 보유 개수 조회
+	 */
+	getDecorationCounts: () => privateApi.get("/decoration/my-counts"),
+
+	/**
+	 * 장식품 구매
+	 */
+	buyDecoration: (decorationType) => privateApi.post("/decoration/buy", { decorationType }),
+
+	/**
 	 * 책장 데이터 저장
 	 * @param {Object} data - 책장 장식품 데이터
 	 * @returns {Promise} 저장 결과
